@@ -23,7 +23,6 @@
         .s-rect::after { border-radius: 0; }
         .s-capsule::after { border-radius: 9999px; } 
         .s-ellipse::after { border-radius: 50%; }
-        .s-triangle::after { background: rgba(79, 70, 229, 0.1); clip-path: polygon(0% 100%, 100% 100%, 0% 0%); border: none !important; }
         .handle { position: absolute; pointer-events: auto !important; z-index: 100; }
         .rotate-handle { width: 18px; height: 18px; background: #4f46e5; border: 2px solid white; border-radius: 50%; top: -30px; left: 50%; transform: translateX(-50%); cursor: grab; }
         .resize-handle { width: 14px; height: 14px; background: white; border: 2px solid #4f46e5; border-radius: 4px; bottom: -7px; right: -7px; cursor: nwse-resize; }
@@ -45,7 +44,7 @@
                         <button id="admin-trigger" class="ml-1 text-slate-200 hover:text-indigo-400 text-xs transition-colors">⚙️</button>
                     </h1>
                 </div>
-                <p class="text-slate-500 mt-2">點擊地圖標記失物，累積校園功德值！</p>
+                <p class="text-slate-500 mt-2">連點齒輪 5 下開啟管理模式。目前的區域資料與雲端同步中。</p>
             </div>
             
             <div class="flex items-center gap-4 bg-white p-2 px-6 rounded-3xl shadow-sm border border-slate-100">
@@ -72,7 +71,7 @@
                     </div>
                 </div>
                 <div id="save-area-tool" class="hidden flex items-center gap-3">
-                    <button id="btn-open-save-modal" class="bg-indigo-500 px-4 py-1.5 rounded-xl text-sm font-bold">儲存區域</button>
+                    <button id="btn-open-save-modal" class="bg-indigo-500 px-4 py-1.5 rounded-xl text-sm font-bold">儲存新區域</button>
                 </div>
                 <button id="btn-exit-admin" class="text-red-400 text-xs">退出</button>
             </div>
@@ -101,6 +100,14 @@
         </div>
     </div>
 
+    <div id="save-building-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[110] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-8">
+            <h3 class="text-xl font-extrabold mb-4">💾 命名區域</h3>
+            <input type="text" id="input-new-building-name" placeholder="例如：行政大樓" class="w-full px-5 py-4 bg-slate-50 border rounded-2xl mb-4">
+            <button id="btn-final-save" class="w-full py-4 bg-indigo-600 text-white font-extrabold rounded-2xl">確認建立</button>
+        </div>
+    </div>
+
     <div id="report-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
         <div class="bg-white rounded-[2.5rem] max-w-md w-full p-8">
             <h3 class="text-2xl font-extrabold mb-1">📍 發現寶藏</h3>
@@ -119,10 +126,10 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // 已填入你的 Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
             authDomain: "lostandnotfound-6d007.firebaseapp.com",
-            databaseURL: "https://lostandnotfound-6d007-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "lostandnotfound-6d007",
             storageBucket: "lostandnotfound-6d007.firebasestorage.app",
             messagingSenderId: "456947474024",
@@ -132,65 +139,126 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = 'campus-merit-v1';
 
         let isAdminMode = false, adminClickCount = 0;
-        let buildings = [], lostItems = [], startPos = { x: 0, y: 0 };
+        let activeTool = 'select', buildings = [], lostItems = [], tempShape = null, startPos = {x:0,y:0};
 
-        // 核心邏輯啟動
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 const nick = localStorage.getItem('last_nickname') || "訪客";
                 document.getElementById('display-nickname').innerText = nick;
                 listenToItems();
+                listenToBuildings();
                 listenToLeaderboard();
-                // 這裡原本應載入建築區域，目前先設為空
             }
         });
         signInAnonymously(auth);
 
-        // 管理員開啟
+        // 管理員齒輪監聽
         document.getElementById('admin-trigger').addEventListener('click', () => {
             adminClickCount++;
-            if (adminClickCount >= 5) { isAdminMode = true; document.getElementById('admin-tools').classList.remove('hidden'); }
+            if (adminClickCount >= 5) {
+                isAdminMode = true;
+                document.getElementById('admin-tools').classList.remove('hidden');
+                alert("管理模式已開啟！點選工具開始畫地圖。");
+            }
         });
 
-        // 點擊地圖報失
-        document.getElementById('school-map').addEventListener('mousedown', (e) => {
-            if (isAdminMode) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            startPos = { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 };
-            document.getElementById('report-modal').classList.remove('hidden');
+        document.getElementById('btn-exit-admin').addEventListener('click', () => {
+            isAdminMode = false;
+            document.getElementById('admin-tools').classList.add('hidden');
         });
 
-        // 送出報失
-        document.getElementById('btn-confirm-report').addEventListener('click', async () => {
-            const nick = document.getElementById('input-finder').value || "匿名";
-            const name = document.getElementById('input-name').value;
-            if (!name) return;
-            await setDoc(doc(collection(db, 'lost_items')), { 
-                name, finder: nick, x: startPos.x, y: startPos.y, createdAt: Date.now() 
+        // 設定工具
+        ['select', 'rect', 'ellipse'].forEach(t => {
+            document.getElementById(`btn-${t}`).addEventListener('click', () => {
+                activeTool = t;
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                document.getElementById(`btn-${t}`).classList.add('active');
             });
-            await setDoc(doc(db, 'users', nick), { merit: increment(50) }, { merge: true });
-            localStorage.setItem('last_nickname', nick);
-            location.reload();
         });
+
+        // 地圖互動
+        const mapEl = document.getElementById('school-map');
+        mapEl.addEventListener('mousedown', (e) => {
+            const rect = mapEl.getBoundingClientRect();
+            const curX = ((e.clientX - rect.left) / rect.width) * 100;
+            const curY = ((e.clientY - rect.top) / rect.height) * 100;
+            startPos = { x: curX, y: curY };
+
+            if (!isAdminMode) {
+                document.getElementById('report-modal').classList.remove('hidden');
+                return;
+            }
+
+            if (activeTool !== 'select') {
+                // 開始畫新形狀
+                tempShape = { type: activeTool, x: curX, y: curY, w: 5, h: 5 };
+                renderTemp();
+                document.getElementById('save-area-tool').classList.remove('hidden');
+            }
+        });
+
+        function renderTemp() {
+            const l = document.getElementById('temp-layer');
+            l.innerHTML = '';
+            if (tempShape) {
+                const div = document.createElement('div');
+                div.className = `shape-box temp-box s-${tempShape.type}`;
+                div.style.cssText = `left:${tempShape.x}%; top:${tempShape.y}%; width:${tempShape.w}%; height:${tempShape.h}%;`;
+                l.appendChild(div);
+            }
+        }
+
+        document.getElementById('btn-open-save-modal').addEventListener('click', () => {
+            document.getElementById('save-building-modal').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-final-save').addEventListener('click', async () => {
+            const name = document.getElementById('input-new-building-name').value;
+            if (name && tempShape) {
+                const newBuilding = { ...tempShape, name };
+                await setDoc(doc(db, 'config', 'buildings'), { list: [...buildings, newBuilding] }, { merge: true });
+                tempShape = null;
+                document.getElementById('save-building-modal').classList.add('hidden');
+                document.getElementById('save-area-tool').classList.add('hidden');
+            }
+        });
+
+        function listenToBuildings() {
+            onSnapshot(doc(db, 'config', 'buildings'), (snap) => {
+                if (snap.exists()) {
+                    buildings = snap.data().list || [];
+                    const l = document.getElementById('edit-layer');
+                    l.innerHTML = '';
+                    buildings.forEach(b => {
+                        const div = document.createElement('div');
+                        div.className = `shape-box existing-area-admin s-${b.type}`;
+                        div.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%;`;
+                        div.innerHTML = `<span class="text-[8px] text-indigo-800 font-bold">${b.name}</span>`;
+                        l.appendChild(div);
+                    });
+                }
+            });
+        }
 
         function listenToItems() {
             onSnapshot(collection(db, 'lost_items'), (s) => {
                 lostItems = s.docs.map(d => d.data());
                 document.getElementById('items-count').innerText = lostItems.length;
-                renderPins();
-            });
-        }
-
-        function renderPins() {
-            const l = document.getElementById('pins-layer'); l.innerHTML = '';
-            lostItems.forEach(item => {
-                const p = document.createElement('div'); p.className = 'absolute floating-pin';
-                p.style.left = `${item.x}%`; p.style.top = `${item.y}%`;
-                p.innerHTML = `<div class="bg-indigo-600 text-white text-[10px] px-2 py-1 rounded shadow">💎 ${item.name}</div>`;
-                l.appendChild(p);
+                const l = document.getElementById('pins-layer'); l.innerHTML = '';
+                lostItems.forEach(item => {
+                    const p = document.createElement('div'); p.className = 'absolute floating-pin';
+                    p.style.left = `${item.x}%`; p.style.top = `${item.y}%`;
+                    p.innerHTML = `<div class="bg-indigo-600 text-white text-[10px] px-2 py-1 rounded shadow">💎 ${item.name}</div>`;
+                    l.appendChild(p);
+                });
+                document.getElementById('items-list').innerHTML = lostItems.map(item => `
+                    <div class="p-3 bg-slate-50 rounded-xl flex justify-between">
+                        <span class="font-bold">${item.name}</span>
+                        <span class="text-xs text-slate-400">${item.finder}</span>
+                    </div>
+                `).join('');
             });
         }
 
@@ -202,6 +270,16 @@
                 `).join('');
             });
         }
+
+        document.getElementById('btn-confirm-report').addEventListener('click', async () => {
+            const nick = document.getElementById('input-finder').value || "匿名";
+            const name = document.getElementById('input-name').value;
+            if (!name) return;
+            await setDoc(doc(collection(db, 'lost_items')), { name, finder: nick, x: startPos.x, y: startPos.y, createdAt: Date.now() });
+            await setDoc(doc(db, 'users', nick), { merit: increment(50) }, { merge: true });
+            localStorage.setItem('last_nickname', nick);
+            document.getElementById('report-modal').classList.add('hidden');
+        });
     </script>
 </body>
 </html>
