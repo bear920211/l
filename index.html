@@ -3,428 +3,247 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTCU 實境功德地圖</title>
+    <title>NTCU 實境功德地圖 Pro+ (膠囊支援版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
-
-        .map-container {
-            position: relative;
-            width: 100%;
-            height: 600px;
-            background-color: #e2e8f0;
-            background-image: url('https://i.ibb.co/DPQm11wf/1.png');
-            background-size: contain;
-            background-position: center;
-            background-repeat: no-repeat;
-            border-radius: 2.5rem;
-            cursor: crosshair;
-            overflow: hidden;
-            border: 8px solid white;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-
-        .shape-box {
-            position: absolute;
-            transform-origin: center center;
-            pointer-events: auto;
-        }
+        body { font-family: 'Noto Sans TC', sans-serif; overflow-x: hidden; }
         
-        .shape-box::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: transparent;
+        .map-container {
+            position: relative; width: 100%; height: 650px;
+            background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
+            border-radius: 2.5rem; border: 8px solid #fff; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.2);
         }
 
-        .edit-box::after {
-            border: 2px solid #4f46e5 !important;
-            background: rgba(79, 70, 229, 0.1) !important;
+        .building-shape {
+            position: absolute; transform-origin: center center; cursor: pointer;
+            border: 2px solid transparent; 
+        }
+        /* 膠囊型樣式：使用 999px 圓角 */
+        .s-capsule { border-radius: 999px !important; background: rgba(79, 70, 229, 0.05); }
+        .s-rect { border-radius: 4px; background: rgba(79, 70, 229, 0.05); }
+
+        .selected-shape { border: 2px solid #4f46e5 !important; z-index: 50; background: rgba(79, 70, 229, 0.2); }
+
+        /* 控制點樣式 */
+        .handle {
+            position: absolute; width: 12px; height: 12px; background: #fff;
+            border: 2px solid #4f46e5; border-radius: 50%; pointer-events: auto;
+        }
+        .rotate-handle {
+            position: absolute; width: 16px; height: 16px; background: #4f46e5;
+            border: 2px solid #fff; border-radius: 50%; top: -35px; left: 50%;
+            transform: translateX(-50%); cursor: grab;
+        }
+        .rotate-line {
+            position: absolute; width: 2px; height: 25px; background: #4f46e5;
+            top: -25px; left: 50%; transform: translateX(-50%);
         }
 
-        .temp-box::after {
-            border: 2px dashed #fbbf24 !important;
-            background: rgba(251, 191, 36, 0.1) !important;
-        }
-
-        .s-rect::after { border-radius: 0; }
-        .s-ellipse::after { border-radius: 50%; }
-        .s-triangle::after { clip-path: polygon(0% 100%, 100% 100%, 0% 0%); }
-
-        @keyframes float {
-            0%, 100% { transform: translate(-50%, -100%) translateY(0px); }
-            50% { transform: translate(-50%, -100%) translateY(-10px); }
-        }
-        .floating-pin { animation: float 2s ease-in-out infinite; }
-
-        .tool-btn { @apply px-3 py-2 bg-slate-800 rounded-xl text-[12px] text-white hover:bg-indigo-600 transition-all; }
-        .tool-btn.active { @apply bg-indigo-600 ring-2 ring-white font-bold; }
+        .tool-btn { @apply px-4 py-2 text-white text-xs font-bold rounded-xl transition-all hover:scale-105 active:scale-95; }
     </style>
 </head>
-<body class="p-4 md:p-8 bg-slate-50">
+<body class="bg-slate-100 p-4 md:p-8">
 
-    <div class="max-w-6xl mx-auto">
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
-            <div>
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-                        <span class="text-2xl">💎</span>
-                    </div>
-                    <h1 class="text-3xl font-black text-slate-800 tracking-tight">
-                        NTCU 實境功德地圖
-                        <button id="admin-trigger" class="opacity-0 cursor-default">⚙️</button>
-                    </h1>
-                </div>
-                <p class="text-slate-500 mt-2 font-medium">點擊地圖標註位置，累積校園功德。</p>
-            </div>
-            
-            <div class="flex items-center gap-4 bg-white p-2 px-6 rounded-3xl shadow-sm border border-slate-100">
-                <div class="flex flex-col items-end">
-                    <span class="text-[10px] text-slate-400 font-black">個人功德榜</span>
-                    <span id="display-nickname" class="text-base font-bold text-slate-700 font-mono">訪客</span>
-                </div>
-                <div class="h-8 w-px bg-slate-100 mx-2"></div>
-                <div class="flex flex-col items-end">
-                    <span class="text-[10px] text-slate-400 font-black">累積功德</span>
-                    <span id="my-merit" class="text-xl font-black text-indigo-600">0</span>
-                </div>
-            </div>
-        </header>
-
-        <div id="admin-tools" class="hidden mb-6 p-4 bg-slate-900 text-white rounded-3xl shadow-2xl flex flex-wrap items-center justify-between gap-4">
-            <div class="flex gap-2">
-                <button id="btn-select" class="tool-btn active">👆 選取</button>
-                <button id="btn-rect" class="tool-btn">畫矩形</button>
-                <button id="btn-triangle" class="tool-btn">畫三角形</button>
-                <button id="btn-ellipse" class="tool-btn">畫橢圓</button>
-            </div>
-            <div id="save-area-tool" class="hidden flex items-center gap-3">
-                <button onclick="document.getElementById('save-building-modal').classList.remove('hidden')" class="bg-indigo-500 px-4 py-1.5 rounded-xl text-sm font-bold">儲存新區域</button>
-                <button onclick="window.location.reload()" class="text-slate-400 text-xs">取消</button>
-            </div>
-            <div class="flex gap-2">
-                <button id="btn-delete-selected" class="text-red-400 text-xs font-bold hover:bg-red-500/10 px-3 py-1.5 rounded-lg">刪除選中</button>
-                <button id="btn-exit-admin" class="bg-slate-700 px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-slate-600">退出管理</button>
+    <div class="max-w-7xl mx-auto">
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <h1 class="text-3xl font-black text-slate-800 flex items-center gap-2">
+                💎 NTCU 功德地圖 <span class="text-sm bg-indigo-100 text-indigo-600 px-2 py-1 rounded">PRO v2.1</span>
+                <button id="admin-trigger" class="opacity-10 cursor-default text-xs">ADMIN</button>
+            </h1>
+            <div id="admin-panel" class="hidden flex flex-wrap gap-2 bg-slate-900 p-2 rounded-2xl shadow-xl">
+                <button onclick="setTool('rect')" class="tool-btn bg-indigo-600">＋ 矩形</button>
+                <button onclick="setTool('capsule')" class="tool-btn bg-purple-600">＋ 膠囊</button>
+                <button onclick="deleteSelected()" class="tool-btn bg-red-500/80 hover:bg-red-500">刪除選取</button>
+                <button onclick="toggleAdmin(false)" class="tool-btn bg-slate-700">完成退出</button>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div class="lg:col-span-8">
-                <div id="school-map" class="map-container">
-                    <div id="edit-layer" class="absolute inset-0 z-20"></div>
-                    <div id="temp-layer" class="absolute inset-0 z-30"></div>
-                    <div id="pins-layer" class="absolute inset-0 z-10 pointer-events-none"></div>
-                    <canvas id="drawing-canvas" class="absolute inset-0 pointer-events-none z-40"></canvas>
-                </div>
-            </div>
-
-            <div class="lg:col-span-4 flex flex-col gap-6">
-                <div class="bg-indigo-600 rounded-[2.5rem] p-6 text-white shadow-xl">
-                    <h3 class="text-lg font-bold mb-4 flex items-center gap-2">🏆 功德排行榜</h3>
-                    <div id="leaderboard" class="space-y-3"></div>
-                </div>
-
-                <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 h-[400px] flex flex-col overflow-hidden">
-                    <div class="p-6 border-b bg-slate-50 font-black text-slate-700 flex justify-between items-center">
-                        <span>🔍 待認領物品</span>
-                        <span id="items-count" class="bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full text-xs">0</span>
-                    </div>
-                    <div id="items-list" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
-                </div>
-            </div>
+        <div id="map-root" class="map-container overflow-hidden">
+            <div id="shapes-layer" class="absolute inset-0"></div>
+            <div id="pins-layer" class="absolute inset-0 pointer-events-none"></div>
         </div>
     </div>
 
-    <div id="report-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[100] backdrop-blur-sm p-4">
-        <div class="bg-white rounded-[2.5rem] max-w-md w-full p-8 shadow-2xl">
-            <h3 class="text-2xl font-black mb-1 text-slate-800">📍 發現遺失物</h3>
-            <div id="location-hint" class="inline-block bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full mb-6 text-center">正在定位...</div>
-            <div class="space-y-4">
-                <input type="text" id="input-finder" placeholder="您的英雄暱稱" class="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500">
-                <input type="text" id="input-name" placeholder="遺失物品名稱" class="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500">
-                <button id="btn-confirm-report" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition-all">送出功德報 (+50)</button>
-                <button onclick="document.getElementById('report-modal').classList.add('hidden')" class="w-full text-slate-400 font-bold py-2 mt-2 text-sm">取消</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="save-building-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[110] backdrop-blur-sm">
-        <div class="bg-white rounded-[2.5rem] p-8 max-w-sm w-full">
-            <h3 class="text-xl font-black mb-4">💾 設定區域名稱</h3>
-            <input type="text" id="input-new-building-name" placeholder="例如：美研大樓" class="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl mb-4 font-bold outline-none">
-            <button id="btn-final-save" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl">確認建立區域</button>
+    <div id="report-modal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-[200] backdrop-blur-sm p-4">
+        <div class="bg-white p-8 rounded-[2.5rem] w-full max-w-sm shadow-2xl">
+            <h2 class="text-2xl font-black mb-1">發現物品</h2>
+            <p id="location-name" class="text-indigo-600 font-bold mb-6 italic">定位中...</p>
+            <input id="in-item" type="text" placeholder="遺失物品名稱" class="w-full p-4 bg-slate-100 rounded-2xl mb-4 outline-none border-2 border-transparent focus:border-indigo-500">
+            <input id="in-nick" type="text" placeholder="您的暱稱" class="w-full p-4 bg-slate-100 rounded-2xl mb-6 outline-none">
+            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700">儲存位置 (+50)</button>
+            <button onclick="closeModals()" class="w-full py-2 text-slate-400 text-sm mt-2">暫時不用</button>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
-          apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
-          authDomain: "lostandnotfound-6d007.firebaseapp.com",
-          projectId: "lostandnotfound-6d007",
-          storageBucket: "lostandnotfound-6d007.firebasestorage.app",
-          messagingSenderId: "456947474024",
-          appId: "1:456947474024:web:18382370a1f9ca5c0765dd"
+            apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
+            authDomain: "lostandnotfound-6d007.firebaseapp.com",
+            projectId: "lostandnotfound-6d007",
+            storageBucket: "lostandnotfound-6d007.firebasestorage.app",
+            messagingSenderId: "456947474024",
+            appId: "1:456947474024:web:18382370a1f9ca5c0765dd"
         };
 
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
         const db = getFirestore(app);
+        const COLL = "campus_data";
+        const DOC = "NTCU-CAMPUS-V2"; 
 
-        // 核心修正：將原本出錯的文件路徑拆解為正確的 集合/文件 結構
-        const collectionName = "campus_data";
-        const docName = "NTCU-CAMPUS-V1";
+        let buildings = [];
+        let selectedId = null;
+        let isAdmin = false;
+        let isDragging = false, isRotating = false, isResizing = false;
+        let currentHandle = null;
+        let startPos = { x:0, y:0 };
+        let adminClicks = 0;
 
-        let isAdminMode = false, adminClickCount = 0, activeTool = 'select'; 
-        let isDrawing = false, isDragging = false, selectedId = null, tempShape = null;
-        let startPos = { x: 0, y: 0 }, offset = { x: 0, y: 0 };
-        let buildings = [], lostItems = [];
-
-        onAuthStateChanged(auth, async (user) => {
-            const nick = localStorage.getItem('last_nickname') || "訪客";
-            document.getElementById('display-nickname').innerText = nick;
-            if (user) {
-                syncUserMerit(nick);
-                listenToItems(); listenToBuildings(); listenToLeaderboard();
-            } else { await signInAnonymously(auth); }
+        onSnapshot(doc(db, COLL, DOC), (snap) => {
+            if (snap.exists()) {
+                buildings = snap.data().buildings || [];
+                render();
+            }
         });
 
-        const mapEl = document.getElementById('school-map');
-        mapEl.addEventListener('mousedown', handleMouseDown);
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
+        // --- 核心運算：支援矩形與膠囊型的旋轉判定 ---
+        function isPointInShape(px, py, box) {
+            const rad = -box.angle * Math.PI / 180;
+            const cx = box.x + box.w / 2;
+            const cy = box.y + box.h / 2;
+            const dx = px - cx;
+            const dy = py - cy;
+            const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+            const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
 
-        document.getElementById('admin-trigger').addEventListener('click', () => {
-            adminClickCount++;
-            if (adminClickCount >= 5) { toggleAdmin(true); adminClickCount = 0; alert("管理員模式開啟"); }
-            setTimeout(() => adminClickCount = 0, 3000);
-        });
-
-        ['select', 'rect', 'ellipse', 'triangle'].forEach(t => {
-            document.getElementById(`btn-${t}`)?.addEventListener('click', () => setTool(t));
-        });
-        document.getElementById('btn-delete-selected').onclick = deleteSelected;
-        document.getElementById('btn-final-save').onclick = finalizeBuildingSave;
-        document.getElementById('btn-confirm-report').onclick = submitReport;
-        document.getElementById('btn-exit-admin').onclick = () => toggleAdmin(false);
-
-        function toggleAdmin(state) {
-            isAdminMode = state;
-            document.getElementById('admin-tools').classList.toggle('hidden', !state);
-            if (!state) { selectedId = null; tempShape = null; renderTemp(); }
-            renderBuildings();
-        }
-
-        function setTool(tool) {
-            activeTool = tool;
-            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.toggle('active', btn.id === `btn-${tool}`));
-        }
-
-        function isInsidePrecise(px, py, box) {
-            if (!(px >= box.x && px <= box.x + box.w && py >= box.y && py <= box.y + box.h)) return false;
-            if (box.type === 'triangle') {
-                const relX = (px - box.x) / box.w, relY = (py - box.y) / box.h;
-                return (relX + (1-relY)) <= 1;
+            if (box.type === 'capsule') {
+                const h = box.h, w = box.w;
+                if (w >= h) { // 橫向膠囊
+                    const radius = h / 2;
+                    const lineLen = w - h;
+                    const posX = Math.max(-lineLen/2, Math.min(lineLen/2, rx));
+                    const dist = Math.sqrt(Math.pow(rx - posX, 2) + Math.pow(ry, 2));
+                    return dist <= radius;
+                } else { // 縱向膠囊
+                    const radius = w / 2;
+                    const lineLen = h - w;
+                    const posY = Math.max(-lineLen/2, Math.min(lineLen/2, ry));
+                    const dist = Math.sqrt(Math.pow(rx, 2) + Math.pow(ry - posY, 2));
+                    return dist <= radius;
+                }
             }
-            if (box.type === 'ellipse') {
-                const cx = box.x + box.w/2, cy = box.y + box.h/2, rx = box.w/2, ry = box.h/2;
-                return (Math.pow(px-cx, 2)/Math.pow(rx, 2)) + (Math.pow(py-cy, 2)/Math.pow(ry, 2)) <= 1;
-            }
-            return true;
+            // 矩形判定
+            return (Math.abs(rx) <= box.w / 2 && Math.abs(ry) <= box.h / 2);
         }
 
-        function handleMouseDown(e) {
-            const rect = mapEl.getBoundingClientRect();
-            const curX = ((e.clientX - rect.left) / rect.width) * 100;
-            const curY = ((e.clientY - rect.top) / rect.height) * 100;
-            startPos = { x: curX, y: curY };
-
-            if (!isAdminMode) {
-                let idx = findBuildingAt(curX, curY);
-                document.getElementById('location-hint').innerText = `📍 定位確認：${idx !== -1 ? buildings[idx].name : "校園開放區域"}`;
-                document.getElementById('report-modal').classList.remove('hidden');
-                return;
-            }
-
-            if (activeTool !== 'select') { isDrawing = true; return; }
-            let idx = findBuildingAt(curX, curY);
-            selectedId = idx !== -1 ? idx : null;
-            if (selectedId !== null) {
-                offset = { x: curX - buildings[selectedId].x, y: curY - buildings[selectedId].y };
-                isDragging = true;
-            }
-            renderBuildings();
-        }
-
-        function handleMouseMove(e) {
-            if (!isAdminMode) return;
-            const rect = mapEl.getBoundingClientRect();
-            const curX = ((e.clientX - rect.left) / rect.width) * 100;
-            const curY = ((e.clientY - rect.top) / rect.height) * 100;
-            if (isDrawing) drawPreview(startPos.x, startPos.y, curX, curY);
-            else if (isDragging && selectedId !== null) {
-                buildings[selectedId].x = curX - offset.x;
-                buildings[selectedId].y = curY - offset.y;
-                renderBuildings();
-            }
-        }
-
-        async function handleMouseUp(e) {
-            if (isDrawing) {
-                const rect = mapEl.getBoundingClientRect();
-                const curX = ((e.clientX - rect.left) / rect.width) * 100;
-                const curY = ((e.clientY - rect.top) / rect.height) * 100;
-                tempShape = { type: activeTool, x: Math.min(startPos.x, curX), y: Math.min(startPos.y, curY), w: Math.abs(curX-startPos.x), h: Math.abs(curY-startPos.y) };
-                renderTemp(); isDrawing = false; clearCanvas();
-            } else if (isDragging) {
-                await updateCloudBuildings();
-                isDragging = false;
-            }
-        }
-
-        function findBuildingAt(px, py) {
-            for (let i = buildings.length - 1; i >= 0; i--) { if (isInsidePrecise(px, py, buildings[i])) return i; }
-            return -1;
-        }
-
-        function renderBuildings() {
-            const l = document.getElementById('edit-layer'); l.innerHTML = '';
+        function render() {
+            const layer = document.getElementById('shapes-layer');
+            layer.innerHTML = '';
             buildings.forEach((b, i) => {
                 const el = document.createElement('div');
-                const isSelected = selectedId === i && isAdminMode;
-                el.className = `shape-box ${isSelected ? 'edit-box' : ''} s-${b.type}`;
-                el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%;`;
-                l.appendChild(el);
-            });
-        }
-
-        function renderTemp() {
-            const l = document.getElementById('temp-layer'); l.innerHTML = '';
-            document.getElementById('save-area-tool').classList.toggle('hidden', !tempShape);
-            if (tempShape) {
-                const el = document.createElement('div');
-                el.className = `shape-box temp-box s-${tempShape.type}`;
-                el.style.cssText = `left:${tempShape.x}%; top:${tempShape.y}%; width:${tempShape.w}%; height:${tempShape.h}%;`;
-                l.appendChild(el);
-            }
-        }
-
-        async function finalizeBuildingSave() {
-            const name = document.getElementById('input-new-building-name').value.trim();
-            if (!name) return;
-            buildings.push({ ...tempShape, name });
-            tempShape = null; renderBuildings(); renderTemp();
-            document.getElementById('save-building-modal').classList.add('hidden');
-            await updateCloudBuildings();
-        }
-
-        async function updateCloudBuildings() {
-            // 修正路徑：campus_data (集合) / NTCU-CAMPUS-V1 (文件)
-            await setDoc(doc(db, collectionName, docName), { buildings });
-        }
-
-        function listenToBuildings() {
-            onSnapshot(doc(db, collectionName, docName), (snap) => {
-                if (snap.exists()) { 
-                    buildings = snap.data().buildings || []; 
-                    renderBuildings(); 
+                el.className = `building-shape ${selectedId === i ? 'selected-shape' : ''} s-${b.type}`;
+                el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg);`;
+                
+                if (isAdmin && selectedId === i) {
+                    el.innerHTML = `
+                        <div class="rotate-line"></div>
+                        <div class="rotate-handle" onmousedown="startRotate(event)"></div>
+                        <div class="handle" style="top:-6px;left:-6px;cursor:nw-resize" onmousedown="startResize(event,'nw')"></div>
+                        <div class="handle" style="top:-6px;right:-6px;cursor:ne-resize" onmousedown="startResize(event,'ne')"></div>
+                        <div class="handle" style="bottom:-6px;left:-6px;cursor:sw-resize" onmousedown="startResize(event,'sw')"></div>
+                        <div class="handle" style="bottom:-6px;right:-6px;cursor:se-resize" onmousedown="startResize(event,'se')"></div>
+                    `;
                 }
+                
+                el.onmousedown = (e) => {
+                    e.stopPropagation();
+                    if (isAdmin) {
+                        selectedId = i; isDragging = true;
+                        startPos = getMousePos(e); render();
+                    } else { checkHit(e); }
+                };
+                layer.appendChild(el);
             });
         }
 
-        async function submitReport() {
-            const nick = document.getElementById('input-finder').value.trim() || "匿名英雄";
-            const name = document.getElementById('input-name').value.trim();
-            if(!name) return;
-            const idx = findBuildingAt(startPos.x, startPos.y);
-            // 遺失物直接存在獨立集合，避免路徑層級錯誤
-            await setDoc(doc(collection(db, "lost_items_v1")), { 
-                name, finder: nick, location: idx !== -1 ? buildings[idx].name : "校園開放區域", x: startPos.x, y: startPos.y, createdAt: Date.now() 
-            });
-            await setDoc(doc(db, "users_v1", nick), { merit: increment(50) }, { merge: true });
-            localStorage.setItem('last_nickname', nick);
-            document.getElementById('report-modal').classList.add('hidden');
+        window.startRotate = (e) => { e.stopPropagation(); isRotating = true; };
+        window.startResize = (e, handle) => { e.stopPropagation(); isResizing = true; currentHandle = handle; };
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isAdmin || selectedId === null) return;
+            const cur = getMousePos(e);
+            const b = buildings[selectedId];
+
+            if (isDragging) {
+                b.x += (cur.x - startPos.x);
+                b.y += (cur.y - startPos.y);
+            } else if (isRotating) {
+                const cx = b.x + b.w/2, cy = b.y + b.h/2;
+                b.angle = Math.atan2(cur.y - cy, cur.x - cx) * 180 / Math.PI + 90;
+            } else if (isResizing) {
+                if (currentHandle.includes('e')) b.w = Math.max(1, b.w + (cur.x - (b.x + b.w)));
+                if (currentHandle.includes('s')) b.h = Math.max(1, b.h + (cur.y - (b.y + b.h)));
+                if (currentHandle.includes('w')) { const d = cur.x - b.x; b.x += d; b.w = Math.max(1, b.w - d); }
+                if (currentHandle.includes('n')) { const d = cur.y - b.y; b.y += d; b.h = Math.max(1, b.h - d); }
+            }
+            if (isDragging || isRotating || isResizing) { startPos = cur; render(); }
+        });
+
+        window.addEventListener('mouseup', async () => {
+            if (isDragging || isRotating || isResizing) { await save(); isDragging = isRotating = isResizing = false; }
+        });
+
+        function getMousePos(e) {
+            const rect = document.getElementById('map-root').getBoundingClientRect();
+            return { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 };
         }
 
-        window.claimItem = async (itemId, finderNick) => {
-            if(!confirm("確認已領取？這會為發現者加 20 點圓滿功德！")) return;
-            await deleteDoc(doc(db, "lost_items_v1", itemId));
-            await setDoc(doc(db, "users_v1", finderNick), { merit: increment(20) }, { merge: true });
+        async function save() { await setDoc(doc(db, COLL, DOC), { buildings }); }
+
+        window.setTool = async (type) => {
+            const name = prompt("區域名稱：", type === 'capsule' ? "新步道" : "新建築");
+            if (!name) return;
+            buildings.push({ x: 45, y: 45, w: 12, h: 6, angle: 0, name, type });
+            selectedId = buildings.length - 1;
+            await save();
+        }
+
+        window.deleteSelected = async () => {
+            if (selectedId === null) return;
+            buildings.splice(selectedId, 1);
+            selectedId = null; await save();
+        }
+
+        window.toggleAdmin = (s) => {
+            isAdmin = s;
+            document.getElementById('admin-panel').classList.toggle('hidden', !s);
+            selectedId = null; render();
+        }
+
+        document.getElementById('admin-trigger').onclick = () => { adminClicks++; if (adminClicks >= 5) toggleAdmin(true); };
+
+        function checkHit(e) {
+            const pos = getMousePos(e);
+            let hitIndex = -1;
+            for (let i = buildings.length - 1; i >= 0; i--) {
+                if (isPointInShape(pos.x, pos.y, buildings[i])) { hitIndex = i; break; }
+            }
+            const name = hitIndex !== -1 ? buildings[hitIndex].name : "校園開放區域";
+            document.getElementById('location-name').innerText = `📍 ${name}`;
+            document.getElementById('report-modal').classList.remove('hidden');
+        }
+
+        document.getElementById('map-root').onmousedown = (e) => {
+            if (e.target.id === 'map-root' || e.target.id === 'shapes-layer') {
+                if (!isAdmin) checkHit(e);
+                else { selectedId = null; render(); }
+            }
         };
 
-        function listenToItems() {
-            onSnapshot(collection(db, "lost_items_v1"), (s) => {
-                lostItems = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                document.getElementById('items-count').innerText = lostItems.length;
-                renderPins(); renderList();
-            });
-        }
-
-        function renderPins() {
-            const l = document.getElementById('pins-layer'); l.innerHTML = '';
-            lostItems.forEach(item => {
-                const p = document.createElement('div');
-                p.className = 'absolute transform -translate-x-1/2 -translate-y-full floating-pin';
-                p.style.left = `${item.x}%`; p.style.top = `${item.y}%`;
-                p.innerHTML = `<div class="bg-indigo-600 text-white text-[9px] px-2 py-1 rounded shadow-lg mb-1 font-bold">${item.name}</div><div class="w-3 h-3 bg-white rounded-full border-2 border-indigo-600 mx-auto"></div>`;
-                l.appendChild(p);
-            });
-        }
-
-        function renderList() {
-            const l = document.getElementById('items-list');
-            l.innerHTML = lostItems.map(item => `
-                <div class="p-4 bg-white rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
-                    <div>
-                        <div class="font-bold text-slate-800 text-sm">${item.name}</div>
-                        <div class="text-[10px] text-indigo-500 font-black">📍 ${item.location}</div>
-                    </div>
-                    <div class="text-right flex flex-col items-end gap-2">
-                        <span class="text-[9px] text-slate-300">by ${item.finder}</span>
-                        <button onclick="claimItem('${item.id}', '${item.finder}')" class="bg-emerald-500 text-white text-[10px] px-3 py-1 rounded-lg font-bold">認領</button>
-                    </div>
-                </div>
-            `).join('') || '<div class="text-center py-12 text-slate-300 text-sm">目前沒有遺失物</div>';
-        }
-
-        function listenToLeaderboard() {
-            onSnapshot(collection(db, "users_v1"), (s) => {
-                const list = s.docs.map(d => ({ name: d.id, merit: d.data().merit || 0 })).sort((a,b)=>b.merit-a.merit);
-                document.getElementById('leaderboard').innerHTML = list.slice(0, 5).map((u, i) => `
-                    <div class="flex justify-between items-center text-xs p-2 ${i===0?'bg-white/20 rounded-xl font-bold border border-white/30':''}">
-                        <span>${i+1}. ${u.name}</span><span>${u.merit} pts</span>
-                    </div>`).join('');
-            });
-        }
-
-        async function syncUserMerit(n) {
-            const s = await getDoc(doc(db, "users_v1", n));
-            if(s.exists()) document.getElementById('my-merit').innerText = s.data().merit;
-        }
-
-        async function deleteSelected() {
-            if (selectedId !== null) { 
-                buildings.splice(selectedId, 1); 
-                selectedId = null; 
-                await updateCloudBuildings(); 
-                renderBuildings(); 
-            }
-        }
-
-        function drawPreview(sx, sy, ex, ey) {
-            const canvas = document.getElementById('drawing-canvas');
-            canvas.width = mapEl.clientWidth; canvas.height = mapEl.clientHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = "#4f46e5"; ctx.setLineDash([4, 4]);
-            ctx.strokeRect((sx/100)*canvas.width, (sy/100)*canvas.height, ((ex-sx)/100)*canvas.width, ((ey-sy)/100)*canvas.height);
-        }
-
-        function clearCanvas() { const c = document.getElementById('drawing-canvas'); c.getContext('2d').clearRect(0,0,c.width,c.height); }
+        window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
     </script>
 </body>
 </html>
