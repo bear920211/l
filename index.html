@@ -9,13 +9,12 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
 
-        /* 地圖核心容器 */
         .map-container {
             position: relative;
             width: 100%;
             height: 600px;
             background-color: #e2e8f0;
-            background-image: url('https://i.ibb.co/DPQm11wf/1.png'); /* 確保此連結為你的地圖圖檔 */
+            background-image: url('https://i.ibb.co/DPQm11wf/1.png');
             background-size: contain;
             background-position: center;
             background-repeat: no-repeat;
@@ -26,7 +25,6 @@
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
         }
 
-        /* 隱形判定區域：前端完全看不到 */
         .shape-box {
             position: absolute;
             transform-origin: center center;
@@ -38,10 +36,8 @@
             position: absolute;
             inset: 0;
             background: transparent;
-            border: none;
         }
 
-        /* 僅在管理模式且被選中時顯現 */
         .edit-box::after {
             border: 2px solid #4f46e5 !important;
             background: rgba(79, 70, 229, 0.1) !important;
@@ -52,12 +48,10 @@
             background: rgba(251, 191, 36, 0.1) !important;
         }
 
-        /* 形狀支援 */
         .s-rect::after { border-radius: 0; }
         .s-ellipse::after { border-radius: 50%; }
         .s-triangle::after { clip-path: polygon(0% 100%, 100% 100%, 0% 0%); }
 
-        /* 物品 Pin 動畫 */
         @keyframes float {
             0%, 100% { transform: translate(-50%, -100%) translateY(0px); }
             50% { transform: translate(-50%, -100%) translateY(-10px); }
@@ -111,7 +105,7 @@
             </div>
             <div class="flex gap-2">
                 <button id="btn-delete-selected" class="text-red-400 text-xs font-bold hover:bg-red-500/10 px-3 py-1.5 rounded-lg">刪除選中</button>
-                <button id="btn-exit-admin" class="bg-slate-700 px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-slate-600 transition-all">退出管理</button>
+                <button id="btn-exit-admin" class="bg-slate-700 px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-slate-600">退出管理</button>
             </div>
         </div>
 
@@ -168,11 +162,9 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ✅ 已連結您提供的 Firebase Config
         const firebaseConfig = {
           apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
           authDomain: "lostandnotfound-6d007.firebaseapp.com",
-          databaseURL: "https://lostandnotfound-6d007-default-rtdb.asia-southeast1.firebasedatabase.app",
           projectId: "lostandnotfound-6d007",
           storageBucket: "lostandnotfound-6d007.firebasestorage.app",
           messagingSenderId: "456947474024",
@@ -182,7 +174,10 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = 'NTCU-CAMPUS-V1';
+
+        // 核心修正：將原本出錯的文件路徑拆解為正確的 集合/文件 結構
+        const collectionName = "campus_data";
+        const docName = "NTCU-CAMPUS-V1";
 
         let isAdminMode = false, adminClickCount = 0, activeTool = 'select'; 
         let isDrawing = false, isDragging = false, selectedId = null, tempShape = null;
@@ -190,9 +185,9 @@
         let buildings = [], lostItems = [];
 
         onAuthStateChanged(auth, async (user) => {
+            const nick = localStorage.getItem('last_nickname') || "訪客";
+            document.getElementById('display-nickname').innerText = nick;
             if (user) {
-                const nick = localStorage.getItem('last_nickname') || "訪客";
-                document.getElementById('display-nickname').innerText = nick;
                 syncUserMerit(nick);
                 listenToItems(); listenToBuildings(); listenToLeaderboard();
             } else { await signInAnonymously(auth); }
@@ -220,11 +215,7 @@
         function toggleAdmin(state) {
             isAdminMode = state;
             document.getElementById('admin-tools').classList.toggle('hidden', !state);
-            if (!state) {
-                selectedId = null;
-                tempShape = null;
-                renderTemp();
-            }
+            if (!state) { selectedId = null; tempShape = null; renderTemp(); }
             renderBuildings();
         }
 
@@ -304,7 +295,6 @@
             const l = document.getElementById('edit-layer'); l.innerHTML = '';
             buildings.forEach((b, i) => {
                 const el = document.createElement('div');
-                // 非管理模式或未選中時，保持透明
                 const isSelected = selectedId === i && isAdminMode;
                 el.className = `shape-box ${isSelected ? 'edit-box' : ''} s-${b.type}`;
                 el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%;`;
@@ -333,14 +323,14 @@
         }
 
         async function updateCloudBuildings() {
-            await setDoc(doc(db, appId, 'config'), { buildings });
+            // 修正路徑：campus_data (集合) / NTCU-CAMPUS-V1 (文件)
+            await setDoc(doc(db, collectionName, docName), { buildings });
         }
 
         function listenToBuildings() {
-            onSnapshot(doc(db, appId, 'config'), (snap) => {
+            onSnapshot(doc(db, collectionName, docName), (snap) => {
                 if (snap.exists()) { 
                     buildings = snap.data().buildings || []; 
-                    console.log("成功同步區域資料:", buildings);
                     renderBuildings(); 
                 }
             });
@@ -351,22 +341,23 @@
             const name = document.getElementById('input-name').value.trim();
             if(!name) return;
             const idx = findBuildingAt(startPos.x, startPos.y);
-            await setDoc(doc(collection(db, appId, 'lost_items')), { 
+            // 遺失物直接存在獨立集合，避免路徑層級錯誤
+            await setDoc(doc(collection(db, "lost_items_v1")), { 
                 name, finder: nick, location: idx !== -1 ? buildings[idx].name : "校園開放區域", x: startPos.x, y: startPos.y, createdAt: Date.now() 
             });
-            await setDoc(doc(db, appId, 'users', nick), { merit: increment(50) }, { merge: true });
+            await setDoc(doc(db, "users_v1", nick), { merit: increment(50) }, { merge: true });
             localStorage.setItem('last_nickname', nick);
             document.getElementById('report-modal').classList.add('hidden');
         }
 
         window.claimItem = async (itemId, finderNick) => {
             if(!confirm("確認已領取？這會為發現者加 20 點圓滿功德！")) return;
-            await deleteDoc(doc(db, appId, 'lost_items', itemId));
-            await setDoc(doc(db, appId, 'users', finderNick), { merit: increment(20) }, { merge: true });
+            await deleteDoc(doc(db, "lost_items_v1", itemId));
+            await setDoc(doc(db, "users_v1", finderNick), { merit: increment(20) }, { merge: true });
         };
 
         function listenToItems() {
-            onSnapshot(collection(db, appId, 'lost_items'), (s) => {
+            onSnapshot(collection(db, "lost_items_v1"), (s) => {
                 lostItems = s.docs.map(d => ({ id: d.id, ...d.data() }));
                 document.getElementById('items-count').innerText = lostItems.length;
                 renderPins(); renderList();
@@ -401,7 +392,7 @@
         }
 
         function listenToLeaderboard() {
-            onSnapshot(collection(db, appId, 'users'), (s) => {
+            onSnapshot(collection(db, "users_v1"), (s) => {
                 const list = s.docs.map(d => ({ name: d.id, merit: d.data().merit || 0 })).sort((a,b)=>b.merit-a.merit);
                 document.getElementById('leaderboard').innerHTML = list.slice(0, 5).map((u, i) => `
                     <div class="flex justify-between items-center text-xs p-2 ${i===0?'bg-white/20 rounded-xl font-bold border border-white/30':''}">
@@ -411,7 +402,7 @@
         }
 
         async function syncUserMerit(n) {
-            const s = await getDoc(doc(db, appId, 'users', n));
+            const s = await getDoc(doc(db, "users_v1", n));
             if(s.exists()) document.getElementById('my-merit').innerText = s.data().merit;
         }
 
