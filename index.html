@@ -9,7 +9,6 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
 
-        /* 地圖容器 */
         .map-container {
             position: relative; width: 100%; height: 600px;
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
@@ -17,32 +16,38 @@
             overflow: hidden; cursor: crosshair;
         }
 
-        #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
+        /* 核心圖層：確保 Shapes 在最上層 */
+        #shapes-layer { position: absolute; inset: 0; z-index: 80; pointer-events: none; }
+        #pins-layer { position: absolute; inset: 0; z-index: 90; pointer-events: none; }
 
-        /* 形狀樣式：預設完全透明，僅保留點擊判定 */
+        /* 形狀基礎樣式 */
         .building-shape { 
             position: absolute; transform-origin: center center; 
-            pointer-events: auto; background: transparent; /* 移除紫色底色 */
+            pointer-events: auto; background: transparent; 
         }
         
+        /* 管理模式下的虛線提示（讓你沒點到也能看到隱形的框） */
+        .admin-view .building-shape { border: 1px dashed rgba(79, 70, 229, 0.4); }
+
         .s-rect { border-radius: 2px; }
         .s-capsule { border-radius: 999px !important; }
         .s-ellipse { border-radius: 50% !important; }
         .s-triangle { clip-path: polygon(0 0, 100% 0, 0 100%); }
 
-        /* 管理模式下的選中樣式：淡淡的藍色框 */
+        /* 選中狀態：絕對可視的強烈顏色 */
         .selected-shape { 
-            border: 2px dashed #4f46e5 !important; 
-            background: rgba(79, 70, 229, 0.1) !important; 
-            z-index: 50; 
+            border: 3px solid #4f46e5 !important; 
+            background: rgba(79, 70, 229, 0.25) !important; 
+            z-index: 100 !important; 
+            box-shadow: 0 0 15px rgba(79, 70, 229, 0.4);
         }
 
-        .handle { position: absolute; width: 10px; height: 10px; background: #fff; border: 2px solid #4f46e5; border-radius: 50%; z-index: 60; }
-        .rotate-handle { position: absolute; width: 14px; height: 14px; background: #4f46e5; border: 2px solid #fff; border-radius: 50%; top: -30px; left: 50%; transform: translateX(-50%); cursor: grab; }
-        .rotate-line { position: absolute; width: 2px; height: 20px; background: #4f46e5; top: -20px; left: 50%; transform: translateX(-50%); }
+        .handle { position: absolute; width: 12px; height: 12px; background: #fff; border: 2px solid #4f46e5; border-radius: 50%; z-index: 110; }
+        .rotate-handle { position: absolute; width: 16px; height: 16px; background: #4f46e5; border: 2px solid #fff; border-radius: 50%; top: -35px; left: 50%; transform: translateX(-50%); cursor: grab; }
+        .rotate-line { position: absolute; width: 2px; height: 25px; background: #4f46e5; top: -25px; left: 50%; transform: translateX(-50%); }
 
         .tool-btn { @apply px-3 py-2 rounded-xl text-[11px] text-white font-bold transition-all hover:scale-105; }
-        .floating-pin { animation: float 2s ease-in-out infinite; position: absolute; pointer-events: none; transform: translate(-50%, -100%); z-index: 40; }
+        .floating-pin { animation: float 2s ease-in-out infinite; position: absolute; pointer-events: none; transform: translate(-50%, -100%); z-index: 70; }
         @keyframes float { 0%, 100% { transform: translate(-50%, -100%) translateY(0px); } 50% { transform: translate(-50%, -100%) translateY(-10px); } }
     </style>
 </head>
@@ -51,15 +56,12 @@
     <div class="max-w-6xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
             <div>
-                <h1 class="text-3xl font-black text-slate-800">
-                    💎 NTCU 功德地圖 
-                    <button id="admin-trigger" class="opacity-0 cursor-default">.</button>
-                </h1>
-                <p class="text-slate-500">點擊地圖區域標註遺失物</p>
+                <h1 class="text-3xl font-black text-slate-800">💎 NTCU 功德地圖 <button id="admin-trigger" class="opacity-0">.</button></h1>
+                <p class="text-slate-500 text-sm">點擊地圖標記遺失物，累積校園功德。</p>
             </div>
             <div class="flex bg-white p-3 rounded-3xl shadow-sm border border-slate-100 gap-6">
-                <div class="text-right items-end flex flex-col"><span class="text-[9px] font-black text-slate-400">HERO</span><span id="display-nickname" class="font-bold text-slate-700">訪客</span></div>
-                <div class="text-right items-end flex flex-col"><span class="text-[9px] font-black text-slate-400">MERIT</span><span id="my-merit" class="text-xl font-black text-indigo-600">0</span></div>
+                <div class="text-right items-end flex flex-col"><span class="text-[9px] font-black text-slate-400">HERO</span><span id="hero-name" class="font-bold text-slate-700">訪客</span></div>
+                <div class="text-right items-end flex flex-col"><span class="text-[9px] font-black text-slate-400">MERIT</span><span id="hero-merit" class="text-xl font-black text-indigo-600">0</span></div>
             </div>
         </header>
 
@@ -70,9 +72,9 @@
                 <button onclick="setTool('ellipse')" class="tool-btn bg-pink-600">＋ 橢圓</button>
                 <button onclick="setTool('triangle')" class="tool-btn bg-amber-600">＋ 三角形</button>
             </div>
-            <div class="flex gap-4 items-center">
-                <button onclick="deleteSelected()" class="text-red-400 text-xs font-bold px-3 py-1">刪除選中</button>
-                <button onclick="toggleAdmin(false)" class="bg-white/10 text-white text-xs px-4 py-1.5 rounded-xl">退出管理</button>
+            <div class="flex gap-4">
+                <button onclick="deleteSelected()" class="text-red-400 text-xs font-bold">刪除選中</button>
+                <button onclick="toggleAdmin(false)" class="bg-white/10 text-white text-xs px-4 py-1.5 rounded-xl">結束</button>
             </div>
         </div>
 
@@ -89,7 +91,7 @@
                     <div id="leaderboard" class="space-y-3 text-xs"></div>
                 </div>
                 <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
-                    <div class="p-5 border-b bg-slate-50 font-black flex justify-between items-center text-slate-600">
+                    <div class="p-5 border-b bg-slate-50 font-black text-slate-600 flex justify-between">
                         <span>待認領</span>
                         <span id="items-count" class="bg-indigo-100 text-indigo-600 px-2 rounded-full text-[10px]">0</span>
                     </div>
@@ -99,7 +101,7 @@
         </div>
     </div>
 
-    <div id="report-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+    <div id="report-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[200] p-4 backdrop-blur-sm">
         <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-8 shadow-2xl text-center">
             <div id="location-name" class="inline-block bg-indigo-50 text-indigo-700 text-xs font-black px-4 py-2 rounded-full mb-4">定位中...</div>
             <input type="text" id="in-item" placeholder="發現了什麼？" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl mb-4 font-bold outline-none">
@@ -133,25 +135,31 @@
         let isDragging = false, isRotating = false, isResizing = false;
         let currentHandle = null, startPos = { x:0, y:0 }, adminClicks = 0, clickPos = { x:50, y:50 };
 
-        onSnapshot(CAMPUS_DOC, (snap) => {
-            if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); }
-        });
+        // 讀取記憶的暱稱
+        const savedNick = localStorage.getItem('ntcu_nick');
+        if(savedNick) { 
+            document.getElementById('in-nick').value = savedNick;
+            document.getElementById('hero-name').innerText = savedNick;
+        }
 
+        // 監聽數據
+        onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
         onSnapshot(LOST_COLL, (s) => {
             lostItems = s.docs.map(d => ({ id: d.id, ...d.data() }));
             document.getElementById('items-count').innerText = lostItems.length;
             renderPins(); renderList();
         });
-
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => 
                 `<div class="flex justify-between items-center bg-white/10 p-2 rounded-xl">
-                    <span>${i+1}. ${d.id}</span>
-                    <span class="font-bold">${d.data().merit || 0} pts</span>
+                    <span>${i+1}. ${d.id}</span><span class="font-bold">${d.data().merit || 0} pts</span>
                 </div>`).join('');
+            // 如果當前暱稱在榜上，更新上方顯示
+            const me = s.docs.find(d => d.id === document.getElementById('hero-name').innerText);
+            if(me) document.getElementById('hero-merit').innerText = me.data().merit;
         });
 
-        // 幾何判定演算法 (不變)
+        // 幾何判定
         function isPointInShape(px, py, box) {
             const rad = -box.angle * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
@@ -177,9 +185,11 @@
                 const el = document.createElement('div');
                 el.className = `building-shape ${selectedId === i ? 'selected-shape' : ''} s-${b.type}`;
                 el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg);`;
+                
                 if (isAdmin && selectedId === i) {
-                    el.innerHTML = `<div class="rotate-line"></div><div class="rotate-handle" onmousedown="window.startRotate(event)"></div><div class="handle" style="top:-5px;left:-5px;cursor:nw-resize" onmousedown="window.startResize(event,'nw')"></div><div class="handle" style="bottom:-5px;right:-5px;cursor:se-resize" onmousedown="window.startResize(event,'se')"></div>`;
+                    el.innerHTML = `<div class="rotate-line"></div><div class="rotate-handle" onmousedown="window.startRotate(event)"></div><div class="handle" style="top:-6px;left:-6px;cursor:nw-resize" onmousedown="window.startResize(event,'nw')"></div><div class="handle" style="bottom:-6px;right:-6px;cursor:se-resize" onmousedown="window.startResize(event,'se')"></div>`;
                 }
+                
                 el.onmousedown = (e) => {
                     e.stopPropagation();
                     if (isAdmin) { selectedId = i; isDragging = true; startPos = getMousePos(e); renderShapes(); }
@@ -194,7 +204,7 @@
             lostItems.forEach(item => {
                 const p = document.createElement('div'); p.className = 'floating-pin';
                 p.style.left = `${item.x}%`; p.style.top = `${item.y}%`;
-                p.innerHTML = `<div class="bg-indigo-600 text-white text-[9px] px-2 py-1 rounded shadow-lg mb-1 font-bold whitespace-nowrap">${item.name}</div><div class="w-3 h-3 bg-white rounded-full border-2 border-indigo-600 mx-auto"></div>`;
+                p.innerHTML = `<div class="bg-indigo-600 text-white text-[9px] px-2 py-1 rounded shadow-lg mb-1 font-bold">${item.name}</div><div class="w-3 h-3 bg-white rounded-full border-2 border-indigo-600 mx-auto"></div>`;
                 layer.appendChild(p);
             });
         }
@@ -202,9 +212,9 @@
         function renderList() {
             document.getElementById('items-list').innerHTML = lostItems.length ? lostItems.map(item => `
                 <div class="p-4 bg-white rounded-2xl border flex justify-between items-center shadow-sm">
-                    <div><div class="font-bold text-sm text-slate-700">${item.name}</div><div class="text-[10px] text-indigo-500 font-black">📍 ${item.location}</div></div>
+                    <div><div class="font-bold text-sm">${item.name}</div><div class="text-[10px] text-indigo-500 font-black">📍 ${item.location}</div></div>
                     <button onclick="window.claimItem('${item.id}','${item.finder}')" class="bg-emerald-500 text-white text-[10px] px-3 py-1 rounded-lg font-bold">認領</button>
-                </div>`).join('') : '<div class="text-center py-12 text-slate-300 text-xs">目前地圖很乾淨</div>';
+                </div>`).join('') : '<div class="text-center py-10 text-slate-300 text-xs">目前沒有遺失物</div>';
         }
 
         function handleMapClick(e) {
@@ -231,27 +241,49 @@
 
         window.startRotate = (e) => { e.stopPropagation(); isRotating = true; };
         window.startResize = (e, h) => { e.stopPropagation(); isResizing = true; currentHandle = h; };
+        
         window.setTool = async (type) => { 
-            const n = prompt("輸入區域名稱："); 
-            if(n) { buildings.push({ x:45, y:45, w:10, h:10, angle:0, name:n, type }); await setDoc(CAMPUS_DOC, { buildings }); } 
+            const n = prompt("區域名稱："); 
+            if(n) { 
+                buildings.push({ x:40, y:40, w:15, h:10, angle:0, name:n, type }); 
+                selectedId = buildings.length - 1;
+                renderShapes();
+                await setDoc(CAMPUS_DOC, { buildings }); 
+            } 
         };
-        window.deleteSelected = async () => { if(selectedId !== null && confirm("確定刪除？")) { buildings.splice(selectedId, 1); selectedId = null; await setDoc(CAMPUS_DOC, { buildings }); } };
-        window.toggleAdmin = (s) => { isAdmin = s; document.getElementById('admin-tools').classList.toggle('hidden', !s); selectedId = null; renderShapes(); };
+
+        window.deleteSelected = async () => { if(selectedId !== null && confirm("刪除？")) { buildings.splice(selectedId, 1); selectedId = null; await setDoc(CAMPUS_DOC, { buildings }); } };
+        
+        window.toggleAdmin = (s) => { 
+            isAdmin = s; 
+            document.getElementById('admin-tools').classList.toggle('hidden', !s); 
+            document.getElementById('map-root').classList.toggle('admin-view', s);
+            selectedId = null; 
+            renderShapes(); 
+        };
+
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
         
-        // 修改後的隱藏觸發：點擊標題旁邊的隱形按鈕 5 次
         document.getElementById('admin-trigger').onclick = () => { 
             adminClicks++; 
-            if(adminClicks >= 5) { toggleAdmin(true); adminClicks=0; alert("管理模式啟動"); } 
+            if(adminClicks >= 5) { toggleAdmin(true); adminClicks=0; alert("管理模式已開啟，地圖中央將出現編輯框"); } 
         };
 
         document.getElementById('btn-submit').onclick = async () => {
-            const item = document.getElementById('in-item').value, nick = document.getElementById('in-nick').value || "匿名英雄";
-            if(!item) return;
+            const item = document.getElementById('in-item').value;
+            const nick = document.getElementById('in-nick').value.trim() || "匿名英雄";
+            if(!item) return alert("請輸入物品名稱");
+            
+            // 記憶暱稱
+            localStorage.setItem('ntcu_nick', nick);
+            document.getElementById('hero-name').innerText = nick;
+
             const loc = document.getElementById('location-name').innerText.replace('📍 ','');
             await setDoc(doc(LOST_COLL), { name:item, finder:nick, location:loc, x:clickPos.x, y:clickPos.y, time:Date.now() });
             await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
-            closeModals(); document.getElementById('in-item').value = "";
+            
+            closeModals(); 
+            document.getElementById('in-item').value = "";
         };
 
         window.claimItem = async (id, f) => { if(confirm("確認領取？")) { await deleteDoc(doc(db, "lost_items_v2", id)); await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true }); } };
