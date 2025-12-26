@@ -109,7 +109,10 @@
                 <button onclick="document.getElementById('save-building-modal').classList.remove('hidden')" class="bg-indigo-500 px-4 py-1.5 rounded-xl text-sm font-bold">儲存新區域</button>
                 <button onclick="window.location.reload()" class="text-slate-400 text-xs">取消</button>
             </div>
-            <button id="btn-delete-selected" class="text-red-400 text-xs font-bold hover:bg-red-500/10 px-3 py-1.5 rounded-lg">刪除選中</button>
+            <div class="flex gap-2">
+                <button id="btn-delete-selected" class="text-red-400 text-xs font-bold hover:bg-red-500/10 px-3 py-1.5 rounded-lg">刪除選中</button>
+                <button id="btn-exit-admin" class="bg-slate-700 px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-slate-600 transition-all">退出管理</button>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -212,11 +215,17 @@
         document.getElementById('btn-delete-selected').onclick = deleteSelected;
         document.getElementById('btn-final-save').onclick = finalizeBuildingSave;
         document.getElementById('btn-confirm-report').onclick = submitReport;
+        document.getElementById('btn-exit-admin').onclick = () => toggleAdmin(false);
 
         function toggleAdmin(state) {
             isAdminMode = state;
             document.getElementById('admin-tools').classList.toggle('hidden', !state);
-            selectedId = null; renderBuildings();
+            if (!state) {
+                selectedId = null;
+                tempShape = null;
+                renderTemp();
+            }
+            renderBuildings();
         }
 
         function setTool(tool) {
@@ -295,7 +304,9 @@
             const l = document.getElementById('edit-layer'); l.innerHTML = '';
             buildings.forEach((b, i) => {
                 const el = document.createElement('div');
-                el.className = `shape-box ${selectedId === i ? 'edit-box' : ''} s-${b.type}`;
+                // 非管理模式或未選中時，保持透明
+                const isSelected = selectedId === i && isAdminMode;
+                el.className = `shape-box ${isSelected ? 'edit-box' : ''} s-${b.type}`;
                 el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%;`;
                 l.appendChild(el);
             });
@@ -327,7 +338,11 @@
 
         function listenToBuildings() {
             onSnapshot(doc(db, appId, 'config'), (snap) => {
-                if (snap.exists()) { buildings = snap.data().buildings || []; renderBuildings(); }
+                if (snap.exists()) { 
+                    buildings = snap.data().buildings || []; 
+                    console.log("成功同步區域資料:", buildings);
+                    renderBuildings(); 
+                }
             });
         }
 
@@ -401,7 +416,12 @@
         }
 
         async function deleteSelected() {
-            if (selectedId !== null) { buildings.splice(selectedId, 1); selectedId = null; await updateCloudBuildings(); renderBuildings(); }
+            if (selectedId !== null) { 
+                buildings.splice(selectedId, 1); 
+                selectedId = null; 
+                await updateCloudBuildings(); 
+                renderBuildings(); 
+            }
         }
 
         function drawPreview(sx, sy, ex, ey) {
