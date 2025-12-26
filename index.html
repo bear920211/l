@@ -14,24 +14,34 @@
             background-size: contain; background-position: center; background-repeat: no-repeat;
             border-radius: 2.5rem; cursor: crosshair; overflow: hidden;
             border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            user-select: none;
         }
+
+        /* 形狀容器 */
         .shape-box { position: absolute; transform-origin: center center; pointer-events: none; }
-        .shape-box::after { content: ''; position: absolute; inset: 0; box-sizing: border-box; }
-        
-        /* 管理模式：現有區域（無文字） */
+        .shape-box::after { content: ''; position: absolute; inset: 0; box-sizing: border-box; transition: all 0.2s; }
+
+        /* 樣式定義 */
         .existing-area-admin::after { border: 2px dashed rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.1); pointer-events: auto; }
-        
-        /* 正在畫的區域 */
+        .edit-box::after { border: 3px solid #4f46e5 !important; background: rgba(79, 70, 229, 0.2) !important; pointer-events: auto; }
         .temp-box::after { border: 2px dashed #fbbf24 !important; background: rgba(251, 191, 36, 0.1) !important; pointer-events: auto; }
         
         .s-rect::after { border-radius: 0; }
+        .s-capsule::after { border-radius: 9999px; }
         .s-ellipse::after { border-radius: 50%; }
-        
-        /* 縮放手把 */
+
+        /* 控制點樣式 */
+        .handle { position: absolute; pointer-events: auto !important; z-index: 100; }
+        .rotate-handle {
+            width: 18px; height: 18px; background: #4f46e5; border: 2px solid white;
+            border-radius: 50%; top: -30px; left: 50%; transform: translateX(-50%); cursor: grab;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .rotate-line { width: 2px; height: 12px; background: #4f46e5; top: -12px; left: 50%; transform: translateX(-50%); pointer-events: none; }
         .resize-handle {
-            position: absolute; width: 14px; height: 14px; background: white; 
-            border: 2px solid #4f46e5; border-radius: 4px; bottom: -7px; right: -7px; 
-            cursor: nwse-resize; pointer-events: auto !important; z-index: 100;
+            width: 14px; height: 14px; background: white; border: 2px solid #4f46e5;
+            border-radius: 4px; bottom: -7px; right: -7px; cursor: nwse-resize;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         .tool-btn { @apply px-3 py-2 bg-slate-800 rounded-xl text-[12px] hover:bg-indigo-600 transition-all text-white; }
@@ -43,39 +53,29 @@
 <body class="p-4 md:p-8">
 
     <div class="max-w-6xl mx-auto">
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
-            <div>
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg"><span class="text-2xl">💎</span></div>
-                    <h1 class="text-3xl font-extrabold text-slate-800">
-                        NTCU 實境功德地圖
-                        <button id="admin-trigger" class="ml-1 text-slate-100 hover:text-indigo-400 text-xs">⚙️</button>
-                    </h1>
-                </div>
+        <header class="flex justify-between items-center mb-8">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg"><span class="text-2xl">💎</span></div>
+                <h1 class="text-3xl font-extrabold text-slate-800">NTCU 實境功德地圖 <button id="admin-trigger" class="text-slate-100 text-xs">⚙️</button></h1>
             </div>
-            
             <div class="flex items-center gap-4 bg-white p-2 px-6 rounded-3xl shadow-sm border border-slate-100">
-                <div class="flex flex-col">
-                    <span id="display-nickname" class="text-base font-bold text-slate-700 italic">匿名英雄</span>
-                </div>
+                <span id="display-nickname" class="text-base font-bold text-slate-700 italic">匿名英雄</span>
                 <div class="h-8 w-px bg-slate-100 mx-2"></div>
-                <div class="flex flex-col items-end">
-                    <span id="my-merit" class="text-xl font-black text-indigo-600">0</span>
-                </div>
+                <span id="my-merit" class="text-xl font-black text-indigo-600">0</span>
             </div>
         </header>
 
         <div id="admin-tools" class="hidden mb-6 p-5 bg-slate-900 text-white rounded-3xl shadow-2xl">
             <div class="flex flex-wrap items-center justify-between gap-6">
-                <div class="flex items-center gap-3">
-                    <div class="flex gap-2">
-                        <button id="btn-select" class="tool-btn active">👆 選取/縮放</button>
-                        <button id="btn-rect" class="tool-btn">矩形</button>
-                        <button id="btn-ellipse" class="tool-btn">橢圓</button>
-                    </div>
+                <div class="flex gap-2">
+                    <button id="btn-select" class="tool-btn active">👆 選取</button>
+                    <button id="btn-rect" class="tool-btn">矩形</button>
+                    <button id="btn-capsule" class="tool-btn">膠囊</button>
+                    <button id="btn-ellipse" class="tool-btn">橢圓</button>
                 </div>
                 <div id="save-area-tool" class="hidden flex items-center gap-3">
                     <button id="btn-final-save" class="bg-indigo-500 px-4 py-1.5 rounded-xl text-sm font-bold">儲存區域</button>
+                    <button id="btn-delete-selected" class="text-red-400 text-xs">刪除選中</button>
                 </div>
                 <button onclick="location.reload()" class="text-red-400 text-xs">結束</button>
             </div>
@@ -87,16 +87,17 @@
                     <div id="edit-layer" class="absolute inset-0 z-20"></div>
                     <div id="temp-layer" class="absolute inset-0 z-30"></div>
                     <div id="pins-layer" class="absolute inset-0 z-10 pointer-events-none"></div>
+                    <canvas id="drawing-canvas" class="absolute inset-0 pointer-events-none z-40"></canvas>
                 </div>
             </div>
 
-            <div class="lg:col-span-4 flex flex-col gap-6">
+            <div class="lg:col-span-4 space-y-6">
                 <div class="bg-indigo-600 rounded-[2.5rem] p-6 text-white shadow-xl">
-                    <h3 class="text-lg font-bold mb-4">🏆 功德榜</h3>
-                    <div id="leaderboard" class="space-y-3 opacity-90 text-sm"></div>
+                    <h3 class="font-bold mb-4">🏆 功德榜</h3>
+                    <div id="leaderboard" class="space-y-3 text-sm"></div>
                 </div>
                 <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 h-[380px] flex flex-col overflow-hidden">
-                    <div class="p-6 border-b bg-slate-50/50 font-black text-slate-700">🔍 待認領物品</div>
+                    <div class="p-6 border-b font-black text-slate-700">🔍 待認領物品</div>
                     <div id="items-list" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
                 </div>
             </div>
@@ -109,7 +110,7 @@
             <div class="space-y-4">
                 <input type="text" id="input-finder" placeholder="您的暱稱" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl">
                 <input type="text" id="input-name" placeholder="遺失物品名稱" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl">
-                <button id="btn-confirm-report" class="w-full py-4 bg-indigo-600 text-white font-extrabold rounded-2xl">送出</button>
+                <button id="btn-confirm-report" class="w-full py-4 bg-indigo-600 text-white font-extrabold rounded-2xl shadow-lg">送出</button>
                 <button onclick="document.getElementById('report-modal').classList.add('hidden')" class="w-full text-slate-400 text-sm">取消</button>
             </div>
         </div>
@@ -134,14 +135,16 @@
         const db = getFirestore(app);
 
         let isAdminMode = false, adminClickCount = 0, activeTool = 'select';
-        let buildings = [], lostItems = [], tempShape = null;
-        let isDragging = false, isResizing = false, startPos = {x:0, y:0}, offset = {x:0, y:0};
+        let buildings = [], lostItems = [], tempShape = null, selectedId = null;
+        let isDrawing = false, isDragging = false, isResizing = false, isRotating = false;
+        let startPos = {x:0, y:0}, offset = {x:0, y:0};
 
         onAuthStateChanged(auth, (user) => { if (user) { listenToItems(); listenToBuildings(); listenToLeaderboard(); } });
         signInAnonymously(auth);
 
         const mapEl = document.getElementById('school-map');
 
+        // 管理員觸發
         document.getElementById('admin-trigger').addEventListener('click', () => {
             adminClickCount++;
             if (adminClickCount >= 5) {
@@ -150,13 +153,27 @@
             }
         });
 
-        ['select', 'rect', 'ellipse'].forEach(t => {
+        // 工具切換
+        ['select', 'rect', 'capsule', 'ellipse'].forEach(t => {
             document.getElementById(`btn-${t}`).addEventListener('click', () => {
                 activeTool = t;
-                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-                document.getElementById(`btn-${t}`).classList.add('active');
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.id === `btn-${t}`));
+                if (t !== 'select') { selectedId = null; renderBuildings(); }
             });
         });
+
+        // 碰撞偵測 (含旋轉計算)
+        function isInsidePrecise(px, py, box) {
+            let lp = { x: px, y: py };
+            if (box.rotation) {
+                const cx = box.x + box.w/2, cy = box.y + box.h/2;
+                const rad = -box.rotation * (Math.PI / 180);
+                const nx = Math.cos(rad) * (px - cx) + Math.sin(rad) * (py - cy) + cx;
+                const ny = Math.cos(rad) * (py - cy) - Math.sin(rad) * (px - cx) + cy;
+                lp = { x: nx, y: ny };
+            }
+            return (lp.x >= box.x && lp.x <= box.x + box.w && lp.y >= box.y && lp.y <= box.y + box.h);
+        }
 
         mapEl.addEventListener('mousedown', (e) => {
             const rect = mapEl.getBoundingClientRect();
@@ -170,75 +187,126 @@
             }
 
             if (activeTool !== 'select') {
-                tempShape = { type: activeTool, x: curX, y: curY, w: 8, h: 8 };
-                renderTemp();
-                document.getElementById('save-area-tool').classList.remove('hidden');
-            } else if (tempShape) {
-                const isNearHandle = (curX > tempShape.x + tempShape.w - 3) && (curY > tempShape.y + tempShape.h - 3);
-                if (isNearHandle) {
-                    isResizing = true;
-                } else if (curX > tempShape.x && curX < tempShape.x + tempShape.w && curY > tempShape.y && curY < tempShape.y + tempShape.h) {
-                    isDragging = true;
-                    offset = { x: curX - tempShape.x, y: curY - tempShape.y };
+                isDrawing = true;
+            } else {
+                // 檢查暫存形狀
+                if (tempShape && isInsidePrecise(curX, curY, tempShape)) {
+                    isDragging = 'temp'; offset = { x: curX - tempShape.x, y: curY - tempShape.y };
+                    return;
                 }
+                // 檢查現有形狀
+                let found = -1;
+                for(let i=buildings.length-1; i>=0; i--) {
+                    if(isInsidePrecise(curX, curY, buildings[i])) { found = i; break; }
+                }
+                selectedId = (found !== -1) ? found : null;
+                if (selectedId !== null) {
+                    isDragging = 'existing';
+                    offset = { x: curX - buildings[selectedId].x, y: curY - buildings[selectedId].y };
+                }
+                renderBuildings();
             }
         });
 
         window.addEventListener('mousemove', (e) => {
-            if (!isAdminMode || (!isResizing && !isDragging)) return;
+            if (!isAdminMode) return;
             const rect = mapEl.getBoundingClientRect();
             const curX = ((e.clientX - rect.left) / rect.width) * 100;
             const curY = ((e.clientY - rect.top) / rect.height) * 100;
 
-            if (isResizing && tempShape) {
-                tempShape.w = Math.max(2, curX - tempShape.x);
-                tempShape.h = Math.max(2, curY - tempShape.y);
-                renderTemp();
-            } else if (isDragging && tempShape) {
-                tempShape.x = curX - offset.x;
-                tempShape.y = curY - offset.y;
-                renderTemp();
+            if (isDrawing) {
+                drawPreview(startPos.x, startPos.y, curX, curY);
+            } else if (isDragging) {
+                const t = isDragging === 'temp' ? tempShape : buildings[selectedId];
+                t.x = curX - offset.x; t.y = curY - offset.y;
+                updateView();
+            } else if (isResizing) {
+                const t = isResizing === 'temp' ? tempShape : buildings[selectedId];
+                t.w = Math.max(1, curX - t.x); t.h = Math.max(1, curY - t.y);
+                updateView();
+            } else if (isRotating) {
+                const t = isRotating === 'temp' ? tempShape : buildings[selectedId];
+                const cx = t.x + t.w/2, cy = t.y + t.h/2;
+                t.rotation = Math.atan2(curY - cy, curX - cx) * (180/Math.PI) + 90;
+                updateView();
             }
+
+            function updateView() { isDragging === 'temp' || isResizing === 'temp' || isRotating === 'temp' ? renderTemp() : renderBuildings(); }
         });
 
-        window.addEventListener('mouseup', () => { isResizing = false; isDragging = false; });
+        window.addEventListener('mouseup', async () => {
+            if (isDrawing) {
+                const w = Math.abs(startPos.x - offset.x), h = Math.abs(startPos.y - offset.y);
+                tempShape = { type: activeTool, x: Math.min(startPos.x, startPos.x+2), y: Math.min(startPos.y, startPos.y+2), w: 8, h: 8, rotation: 0 };
+                isDrawing = false; clearCanvas(); renderTemp(); activeTool = 'select';
+            }
+            if ((isDragging === 'existing' || isResizing === 'existing' || isRotating === 'existing') && selectedId !== null) {
+                await setDoc(doc(db, 'config', 'buildings'), { list: buildings }, { merge: true });
+            }
+            isDragging = isResizing = isRotating = false;
+        });
+
+        function createShapeDOM(b, i, mode) {
+            const isSelected = (mode === 'temp') || (selectedId === i);
+            const el = document.createElement('div');
+            let stateClass = mode === 'temp' ? 'temp-box' : (isSelected ? 'edit-box' : 'existing-area-admin');
+            el.className = `shape-box ${stateClass} s-${b.type}`;
+            el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.rotation||0}deg);`;
+
+            if (isAdminMode && isSelected) {
+                // 旋轉手把
+                const rot = document.createElement('div'); rot.className = 'handle rotate-handle';
+                rot.addEventListener('mousedown', (e) => { e.stopPropagation(); isRotating = mode; });
+                el.appendChild(rot);
+                // 縮放手把
+                const res = document.createElement('div'); res.className = 'handle resize-handle';
+                res.addEventListener('mousedown', (e) => { e.stopPropagation(); isResizing = mode; });
+                el.appendChild(res);
+            }
+            return el;
+        }
+
+        function renderBuildings() {
+            const l = document.getElementById('edit-layer'); l.innerHTML = '';
+            buildings.forEach((b, i) => l.appendChild(createShapeDOM(b, i, 'existing')));
+        }
 
         function renderTemp() {
-            const l = document.getElementById('temp-layer');
-            l.innerHTML = '';
-            if (tempShape) {
-                const div = document.createElement('div');
-                div.className = `shape-box temp-box s-${tempShape.type}`;
-                div.style.cssText = `left:${tempShape.x}%; top:${tempShape.y}%; width:${tempShape.w}%; height:${tempShape.h}%;`;
-                const handle = document.createElement('div');
-                handle.className = 'resize-handle';
-                div.appendChild(handle);
-                l.appendChild(div);
-            }
+            const l = document.getElementById('temp-layer'); l.innerHTML = '';
+            document.getElementById('save-area-tool').classList.toggle('hidden', !tempShape && selectedId === null);
+            if (tempShape) l.appendChild(createShapeDOM(tempShape, null, 'temp'));
         }
+
+        function drawPreview(sx, sy, ex, ey) {
+            const canvas = document.getElementById('drawing-canvas');
+            canvas.width = mapEl.clientWidth; canvas.height = mapEl.clientHeight;
+            const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.strokeStyle = "#4f46e5"; ctx.setLineDash([5,5]);
+            ctx.strokeRect((sx/100)*canvas.width, (sy/100)*canvas.height, ((ex-sx)/100)*canvas.width, ((ey-sy)/100)*canvas.height);
+        }
+
+        function clearCanvas() { const c = document.getElementById('drawing-canvas'); c.getContext('2d').clearRect(0,0,c.width,c.height); }
 
         document.getElementById('btn-final-save').addEventListener('click', async () => {
             if (tempShape) {
-                const newList = [...buildings, { ...tempShape, name: "Area" }];
-                await setDoc(doc(db, 'config', 'buildings'), { list: newList }, { merge: true });
-                tempShape = null; renderTemp();
-                document.getElementById('save-area-tool').classList.add('hidden');
+                buildings.push({ ...tempShape, name: "Area" });
+                await setDoc(doc(db, 'config', 'buildings'), { list: buildings }, { merge: true });
+                tempShape = null; renderTemp(); renderBuildings();
+            }
+        });
+
+        document.getElementById('btn-delete-selected').addEventListener('click', async () => {
+            if (selectedId !== null) {
+                buildings.splice(selectedId, 1);
+                selectedId = null;
+                await setDoc(doc(db, 'config', 'buildings'), { list: buildings }, { merge: true });
+                renderBuildings();
             }
         });
 
         function listenToBuildings() {
             onSnapshot(doc(db, 'config', 'buildings'), (snap) => {
-                if (snap.exists()) {
-                    buildings = snap.data().list || [];
-                    const l = document.getElementById('edit-layer');
-                    l.innerHTML = '';
-                    buildings.forEach(b => {
-                        const div = document.createElement('div');
-                        div.className = `shape-box existing-area-admin s-${b.type}`;
-                        div.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%;`;
-                        l.appendChild(div);
-                    });
-                }
+                if (snap.exists()) { buildings = snap.data().list || []; renderBuildings(); }
             });
         }
 
@@ -257,7 +325,7 @@
                         <div class="font-bold text-slate-800 text-sm">${item.name}</div>
                         <div class="text-[10px] text-slate-400 font-bold">${item.finder}</div>
                     </div>
-                `).join('') || '<div class="text-center py-10 text-slate-300">目前沒有遺失物</div>';
+                `).join('');
             });
         }
 
@@ -267,14 +335,6 @@
                 document.getElementById('leaderboard').innerHTML = list.slice(0, 5).map((u, i) => `
                     <div class="flex justify-between p-2 border-b border-white/10"><span>${i+1}. ${u.id}</span><span class="font-black">${u.merit} pt</span></div>
                 `).join('');
-                const lastNick = localStorage.getItem('last_nickname');
-                if (lastNick) {
-                    const me = list.find(u => u.id === lastNick);
-                    if (me) {
-                        document.getElementById('display-nickname').innerText = lastNick;
-                        document.getElementById('my-merit').innerText = me.merit;
-                    }
-                }
             });
         }
 
@@ -284,7 +344,6 @@
             if (!name) return;
             await setDoc(doc(collection(db, 'lost_items')), { name, finder: nick, x: startPos.x, y: startPos.y, createdAt: Date.now() });
             await setDoc(doc(db, 'users', nick), { merit: increment(50) }, { merge: true });
-            localStorage.setItem('last_nickname', nick);
             document.getElementById('report-modal').classList.add('hidden');
         });
     </script>
