@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTCU 實境功德地圖 Ultimate</title>
+    <title>NTCU 實境功德地圖 Ultimate Fixed</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
 
-        /* 地圖容器 */
         .map-container {
             position: relative; width: 100%; height: 600px;
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
@@ -20,13 +19,13 @@
         #shapes-layer { position: absolute; inset: 0; z-index: 80; pointer-events: none; }
         #pins-layer { position: absolute; inset: 0; z-index: 90; pointer-events: none; }
 
-        /* 形狀樣式 */
+        /* 形狀基礎樣式 */
         .building-shape { 
             position: absolute; transform-origin: center center; 
             pointer-events: auto; background: transparent; 
         }
         
-        /* 管理模式視圖 */
+        /* 管理員提示線 */
         .admin-view .building-shape { border: 1px dashed rgba(79, 70, 229, 0.4); }
 
         .s-rect { border-radius: 2px; }
@@ -34,16 +33,17 @@
         .s-ellipse { border-radius: 50% !important; }
         .s-triangle { clip-path: polygon(0 0, 100% 0, 0 100%); }
 
-        /* 選中狀態 */
+        /* 選中狀態：強制顯示背景以便編輯 */
         .selected-shape { 
             border: 2px solid #4f46e5 !important; 
-            background: rgba(79, 70, 229, 0.2) !important; 
+            background: rgba(79, 70, 229, 0.25) !important; 
             z-index: 100 !important; 
         }
 
-        .handle { position: absolute; width: 12px; height: 12px; background: #fff; border: 2px solid #4f46e5; border-radius: 50%; z-index: 110; }
-        .rotate-handle { position: absolute; width: 16px; height: 16px; background: #4f46e5; border: 2px solid #fff; border-radius: 50%; top: -35px; left: 50%; transform: translateX(-50%); cursor: grab; }
-        .rotate-line { position: absolute; width: 2px; height: 25px; background: #4f46e5; top: -25px; left: 50%; transform: translateX(-50%); }
+        /* 把手樣式：確保足夠大方便點擊 */
+        .handle { position: absolute; width: 14px; height: 14px; background: #fff; border: 2px solid #4f46e5; border-radius: 50%; z-index: 150; }
+        .rotate-handle { position: absolute; width: 18px; height: 18px; background: #4f46e5; border: 2px solid #fff; border-radius: 50%; top: -40px; left: 50%; transform: translateX(-50%); cursor: grab; z-index: 150; }
+        .rotate-line { position: absolute; width: 2px; height: 30px; background: #4f46e5; top: -30px; left: 50%; transform: translateX(-50%); z-index: 140; }
 
         .tool-btn { @apply px-3 py-2 rounded-xl text-[11px] text-white font-bold transition-all hover:scale-105; }
         .floating-pin { animation: float 2s ease-in-out infinite; position: absolute; pointer-events: none; transform: translate(-50%, -100%); z-index: 70; }
@@ -56,7 +56,7 @@
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
             <div>
                 <h1 class="text-3xl font-black text-slate-800">💎 NTCU 功德地圖 <button id="admin-trigger" class="opacity-0">.</button></h1>
-                <p class="text-slate-500 text-sm">點擊地圖區域標註遺失物</p>
+                <p class="text-slate-500 text-sm">三角形控制把手已修復。</p>
             </div>
             <div class="flex bg-white p-3 rounded-3xl shadow-sm border border-slate-100 gap-6">
                 <div class="text-right items-end flex flex-col"><span class="text-[9px] font-black text-slate-400">HERO</span><span id="hero-name" class="font-bold text-slate-700">訪客</span></div>
@@ -72,8 +72,8 @@
                 <button onclick="setTool('triangle')" class="tool-btn bg-amber-600">＋ 三角形</button>
             </div>
             <div class="flex gap-4 items-center">
-                <button onclick="deleteSelected()" class="text-red-400 text-xs font-bold px-3 py-1">刪除選中</button>
-                <button onclick="toggleAdmin(false)" class="bg-white/10 text-white text-xs px-4 py-1.5 rounded-xl font-bold">結束</button>
+                <button onclick="deleteSelected()" class="text-red-400 text-xs font-bold px-3 py-1">刪除</button>
+                <button onclick="toggleAdmin(false)" class="bg-white/10 text-white text-xs px-4 py-1.5 rounded-xl">結束</button>
             </div>
         </div>
 
@@ -84,15 +84,13 @@
                     <div id="pins-layer"></div>
                 </div>
             </div>
-
             <div class="lg:col-span-4 flex flex-col gap-6">
                 <div class="bg-indigo-600 rounded-[2.5rem] p-6 text-white shadow-xl">
-                    <h3 class="font-bold mb-4 flex items-center gap-2">🏆 功德榜 <span class="text-[10px] opacity-60">TOP 5</span></h3>
+                    <h3 class="font-bold mb-4">🏆 功德榜</h3>
                     <div id="leaderboard" class="space-y-3 text-xs"></div>
                 </div>
-                
                 <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
-                    <div class="p-5 border-b bg-slate-50 font-black flex justify-between items-center text-slate-600">
+                    <div class="p-5 border-b bg-slate-50 font-black flex justify-between">
                         <span>待認領遺失物</span>
                         <span id="items-count" class="bg-indigo-100 text-indigo-600 px-2 rounded-full text-[10px]">0</span>
                     </div>
@@ -127,7 +125,6 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        
         const CAMPUS_DOC = doc(db, "campus_data", "NTCU-CAMPUS-V2");
         const LOST_COLL = collection(db, "lost_items_v2");
         const USER_COLL = collection(db, "users_v2");
@@ -136,7 +133,6 @@
         let isDragging = false, isRotating = false, isResizing = false;
         let startPos = { x:0, y:0 }, adminClicks = 0, clickPos = { x:50, y:50 };
 
-        // 記憶暱稱
         const savedNick = localStorage.getItem('ntcu_nick');
         if(savedNick) { 
             document.getElementById('in-nick').value = savedNick;
@@ -158,7 +154,6 @@
             if(me) document.getElementById('hero-merit').innerText = me.data().merit;
         });
 
-        // 幾何判定公式 (包含三角形旋轉修正)
         function isPointInShape(px, py, box) {
             const rad = -box.angle * Math.PI / 180;
             const cx = box.x + box.w / 2;
@@ -185,13 +180,22 @@
                 const el = document.createElement('div');
                 el.className = `building-shape ${selectedId === i ? 'selected-shape' : ''} s-${b.type}`;
                 el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg);`;
+                
                 if (isAdmin && selectedId === i) {
-                    el.innerHTML = `<div class="rotate-line"></div><div class="rotate-handle" onmousedown="window.startRotate(event)"></div><div class="handle" style="bottom:-6px;right:-6px;cursor:se-resize" onmousedown="window.startResize(event)"></div>`;
+                    el.innerHTML = `
+                        <div class="rotate-line"></div>
+                        <div class="rotate-handle" onmousedown="window.startRotate(event)"></div>
+                        <div class="handle" style="bottom:-7px;right:-7px;cursor:se-resize;" onmousedown="window.startResize(event)"></div>
+                    `;
                 }
+                
                 el.onmousedown = (e) => {
                     e.stopPropagation();
-                    if (isAdmin) { selectedId = i; isDragging = true; startPos = getMousePos(e); renderShapes(); }
-                    else { handleMapClick(e); }
+                    if (isAdmin) { 
+                        selectedId = i; isDragging = true; startPos = getMousePos(e); renderShapes(); 
+                    } else { 
+                        handleMapClick(e); 
+                    }
                 };
                 layer.appendChild(el);
             });
@@ -227,20 +231,38 @@
             if (!isAdmin || selectedId === null) return;
             const cur = getMousePos(e), b = buildings[selectedId];
             if (isDragging) { b.x += (cur.x - startPos.x); b.y += (cur.y - startPos.y); }
-            else if (isRotating) { const cx = b.x + b.w/2, cy = b.y + b.h/2; b.angle = Math.atan2(cur.y - cy, cur.x - cx) * 180 / Math.PI + 90; }
-            else if (isResizing) { b.w = Math.max(1, b.w + (cur.x - (b.x + b.w))); b.h = Math.max(1, b.h + (cur.y - (b.y + b.h))); }
-            if (isDragging || isRotating || isResizing) { startPos = cur; renderShapes(); }
+            else if (isRotating) { 
+                const cx = b.x + b.w/2, cy = b.y + b.h/2; 
+                b.angle = Math.atan2(cur.y - cy, cur.x - cx) * 180 / Math.PI + 90; 
+            }
+            else if (isResizing) { 
+                b.w = Math.max(1, b.w + (cur.x - (b.x + b.w))); 
+                b.h = Math.max(1, b.h + (cur.y - (b.y + b.h))); 
+            }
+            startPos = cur;
+            renderShapes();
         });
 
-        window.addEventListener('mouseup', async () => { if (isDragging || isRotating || isResizing) { await setDoc(CAMPUS_DOC, { buildings }); isDragging = isRotating = isResizing = false; } });
+        window.addEventListener('mouseup', async () => { 
+            if (isDragging || isRotating || isResizing) { 
+                await setDoc(CAMPUS_DOC, { buildings }); 
+                isDragging = isRotating = isResizing = false; 
+            } 
+        });
 
         window.startRotate = (e) => { e.stopPropagation(); isRotating = true; };
         window.startResize = (e) => { e.stopPropagation(); isResizing = true; };
+        
         window.setTool = async (type) => { 
             const n = prompt("區域名稱："); 
-            if(n) { buildings.push({ x:40, y:40, w:15, h:15, angle:0, name:n, type }); selectedId = buildings.length-1; await setDoc(CAMPUS_DOC, { buildings }); } 
+            if(n) { 
+                buildings.push({ x:40, y:40, w:15, h:15, angle:0, name:n, type }); 
+                selectedId = buildings.length - 1; 
+                await setDoc(CAMPUS_DOC, { buildings }); 
+            } 
         };
-        window.deleteSelected = async () => { if(selectedId !== null && confirm("刪除？")) { buildings.splice(selectedId, 1); selectedId = null; await setDoc(CAMPUS_DOC, { buildings }); } };
+
+        window.deleteSelected = async () => { if(selectedId !== null && confirm("確定刪除？")) { buildings.splice(selectedId, 1); selectedId = null; await setDoc(CAMPUS_DOC, { buildings }); } };
         window.toggleAdmin = (s) => { isAdmin = s; document.getElementById('admin-tools').classList.toggle('hidden', !s); document.getElementById('map-root').classList.toggle('admin-view', s); selectedId = null; renderShapes(); };
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
         document.getElementById('admin-trigger').onclick = () => { adminClicks++; if(adminClicks >= 5) toggleAdmin(true); };
