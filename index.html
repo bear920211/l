@@ -9,7 +9,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
 
-        /* 地圖容器與圖層強化 */
+        /* 地圖容器 */
         .map-container {
             position: relative; width: 100%; height: 600px;
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
@@ -17,26 +17,26 @@
             overflow: hidden; cursor: crosshair;
         }
 
-        #shapes-layer, #pins-layer {
-            position: absolute; inset: 0; pointer-events: none;
-        }
+        #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
 
-        /* 四大形狀樣式 */
+        /* 形狀樣式：預設完全透明，僅保留點擊判定 */
         .building-shape { 
             position: absolute; transform-origin: center center; 
-            pointer-events: auto; /* 讓形狀本身可以被點擊 */
-            transition: background 0.2s;
+            pointer-events: auto; background: transparent; /* 移除紫色底色 */
         }
-        .s-rect { border-radius: 4px; background: rgba(79, 70, 229, 0.2); }
-        .s-capsule { border-radius: 999px !important; background: rgba(168, 85, 247, 0.2); }
-        .s-ellipse { border-radius: 50% !important; background: rgba(236, 72, 153, 0.2); }
-        .s-triangle { 
-            background: rgba(245, 158, 11, 0.3) !important; 
-            clip-path: polygon(0 0, 100% 0, 0 100%); 
+        
+        .s-rect { border-radius: 2px; }
+        .s-capsule { border-radius: 999px !important; }
+        .s-ellipse { border-radius: 50% !important; }
+        .s-triangle { clip-path: polygon(0 0, 100% 0, 0 100%); }
+
+        /* 管理模式下的選中樣式：淡淡的藍色框 */
+        .selected-shape { 
+            border: 2px dashed #4f46e5 !important; 
+            background: rgba(79, 70, 229, 0.1) !important; 
+            z-index: 50; 
         }
 
-        /* 選中狀態與控制器 */
-        .selected-shape { border: 2px solid #4f46e5 !important; z-index: 50; background: rgba(79, 70, 229, 0.4) !important; }
         .handle { position: absolute; width: 10px; height: 10px; background: #fff; border: 2px solid #4f46e5; border-radius: 50%; z-index: 60; }
         .rotate-handle { position: absolute; width: 14px; height: 14px; background: #4f46e5; border: 2px solid #fff; border-radius: 50%; top: -30px; left: 50%; transform: translateX(-50%); cursor: grab; }
         .rotate-line { position: absolute; width: 2px; height: 20px; background: #4f46e5; top: -20px; left: 50%; transform: translateX(-50%); }
@@ -51,8 +51,11 @@
     <div class="max-w-6xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
             <div>
-                <h1 class="text-3xl font-black text-slate-800">💎 NTCU 功德地圖 <button id="admin-trigger" class="opacity-10 text-xs">ADMIN</button></h1>
-                <p class="text-slate-500">四大形狀標註：矩形、膠囊、三角形、橢圓。</p>
+                <h1 class="text-3xl font-black text-slate-800">
+                    💎 NTCU 功德地圖 
+                    <button id="admin-trigger" class="opacity-0 cursor-default">.</button>
+                </h1>
+                <p class="text-slate-500">點擊地圖區域標註遺失物</p>
             </div>
             <div class="flex bg-white p-3 rounded-3xl shadow-sm border border-slate-100 gap-6">
                 <div class="text-right items-end flex flex-col"><span class="text-[9px] font-black text-slate-400">HERO</span><span id="display-nickname" class="font-bold text-slate-700">訪客</span></div>
@@ -68,8 +71,8 @@
                 <button onclick="setTool('triangle')" class="tool-btn bg-amber-600">＋ 三角形</button>
             </div>
             <div class="flex gap-4 items-center">
-                <button onclick="deleteSelected()" class="text-red-400 text-xs font-bold px-3 py-1 hover:bg-red-500/10 rounded-lg">刪除選中</button>
-                <button onclick="toggleAdmin(false)" class="bg-white/10 text-white text-xs px-4 py-1.5 rounded-xl font-bold">退出管理</button>
+                <button onclick="deleteSelected()" class="text-red-400 text-xs font-bold px-3 py-1">刪除選中</button>
+                <button onclick="toggleAdmin(false)" class="bg-white/10 text-white text-xs px-4 py-1.5 rounded-xl">退出管理</button>
             </div>
         </div>
 
@@ -80,15 +83,14 @@
                     <div id="pins-layer"></div>
                 </div>
             </div>
-
             <div class="lg:col-span-4 flex flex-col gap-6">
                 <div class="bg-indigo-600 rounded-[2.5rem] p-6 text-white shadow-xl">
-                    <h3 class="font-bold mb-4 flex items-center gap-2">🏆 功德榜 <span class="text-[10px] opacity-60">TOP 5</span></h3>
+                    <h3 class="font-bold mb-4">🏆 功德榜</h3>
                     <div id="leaderboard" class="space-y-3 text-xs"></div>
                 </div>
                 <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
                     <div class="p-5 border-b bg-slate-50 font-black flex justify-between items-center text-slate-600">
-                        <span>待認領遺失物</span>
+                        <span>待認領</span>
                         <span id="items-count" class="bg-indigo-100 text-indigo-600 px-2 rounded-full text-[10px]">0</span>
                     </div>
                     <div id="items-list" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
@@ -99,10 +101,10 @@
 
     <div id="report-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
         <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-8 shadow-2xl text-center">
-            <div id="location-name" class="inline-block bg-indigo-50 text-indigo-700 text-xs font-black px-4 py-2 rounded-full mb-4">校園區域</div>
-            <input type="text" id="in-item" placeholder="發現了什麼？" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl mb-4 font-bold outline-none focus:border-indigo-500">
+            <div id="location-name" class="inline-block bg-indigo-50 text-indigo-700 text-xs font-black px-4 py-2 rounded-full mb-4">定位中...</div>
+            <input type="text" id="in-item" placeholder="發現了什麼？" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl mb-4 font-bold outline-none">
             <input type="text" id="in-nick" placeholder="您的英雄暱稱" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl mb-6 font-bold outline-none">
-            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition-all">確認標註 (+50 功德)</button>
+            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg">確認標註 (+50 功德)</button>
             <button onclick="closeModals()" class="w-full text-slate-400 font-bold py-2 text-xs mt-2">取消</button>
         </div>
     </div>
@@ -123,7 +125,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         
-        // 核心路徑定義
         const CAMPUS_DOC = doc(db, "campus_data", "NTCU-CAMPUS-V2");
         const LOST_COLL = collection(db, "lost_items_v2");
         const USER_COLL = collection(db, "users_v2");
@@ -132,34 +133,30 @@
         let isDragging = false, isRotating = false, isResizing = false;
         let currentHandle = null, startPos = { x:0, y:0 }, adminClicks = 0, clickPos = { x:50, y:50 };
 
-        // 監聽建築資料
         onSnapshot(CAMPUS_DOC, (snap) => {
             if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); }
         });
 
-        // 監聽遺失物
         onSnapshot(LOST_COLL, (s) => {
             lostItems = s.docs.map(d => ({ id: d.id, ...d.data() }));
             document.getElementById('items-count').innerText = lostItems.length;
             renderPins(); renderList();
         });
 
-        // 監聽排行榜
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => 
                 `<div class="flex justify-between items-center bg-white/10 p-2 rounded-xl">
                     <span>${i+1}. ${d.id}</span>
-                    <span class="font-bold text-indigo-200">${d.data().merit || 0} pts</span>
+                    <span class="font-bold">${d.data().merit || 0} pts</span>
                 </div>`).join('');
         });
 
-        // --- 核心幾何演算法 ---
+        // 幾何判定演算法 (不變)
         function isPointInShape(px, py, box) {
             const rad = -box.angle * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
             const rx = (px-cx)*Math.cos(rad)-(py-cy)*Math.sin(rad);
             const ry = (px-cx)*Math.sin(rad)+(py-cy)*Math.cos(rad);
-
             if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
             if (box.type === 'ellipse') return (Math.pow(rx, 2) / Math.pow(box.w/2, 2)) + (Math.pow(ry, 2) / Math.pow(box.h/2, 2)) <= 1;
             if (box.type === 'capsule') {
@@ -174,21 +171,15 @@
             return false;
         }
 
-        // --- 渲染函數 ---
         function renderShapes() {
             const layer = document.getElementById('shapes-layer'); layer.innerHTML = '';
             buildings.forEach((b, i) => {
                 const el = document.createElement('div');
                 el.className = `building-shape ${selectedId === i ? 'selected-shape' : ''} s-${b.type}`;
                 el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg);`;
-                
                 if (isAdmin && selectedId === i) {
-                    el.innerHTML = `
-                        <div class="rotate-line"></div><div class="rotate-handle" onmousedown="window.startRotate(event)"></div>
-                        <div class="handle" style="top:-5px;left:-5px;cursor:nw-resize" onmousedown="window.startResize(event,'nw')"></div>
-                        <div class="handle" style="bottom:-5px;right:-5px;cursor:se-resize" onmousedown="window.startResize(event,'se')"></div>`;
+                    el.innerHTML = `<div class="rotate-line"></div><div class="rotate-handle" onmousedown="window.startRotate(event)"></div><div class="handle" style="top:-5px;left:-5px;cursor:nw-resize" onmousedown="window.startResize(event,'nw')"></div><div class="handle" style="bottom:-5px;right:-5px;cursor:se-resize" onmousedown="window.startResize(event,'se')"></div>`;
                 }
-                
                 el.onmousedown = (e) => {
                     e.stopPropagation();
                     if (isAdmin) { selectedId = i; isDragging = true; startPos = getMousePos(e); renderShapes(); }
@@ -216,7 +207,6 @@
                 </div>`).join('') : '<div class="text-center py-12 text-slate-300 text-xs">目前地圖很乾淨</div>';
         }
 
-        // --- 交互邏輯 ---
         function handleMapClick(e) {
             clickPos = getMousePos(e);
             let hit = -1;
@@ -239,7 +229,6 @@
 
         window.addEventListener('mouseup', async () => { if (isDragging || isRotating || isResizing) { await setDoc(CAMPUS_DOC, { buildings }); isDragging = isRotating = isResizing = false; } });
 
-        // --- 功能介面 ---
         window.startRotate = (e) => { e.stopPropagation(); isRotating = true; };
         window.startResize = (e, h) => { e.stopPropagation(); isResizing = true; currentHandle = h; };
         window.setTool = async (type) => { 
@@ -249,7 +238,12 @@
         window.deleteSelected = async () => { if(selectedId !== null && confirm("確定刪除？")) { buildings.splice(selectedId, 1); selectedId = null; await setDoc(CAMPUS_DOC, { buildings }); } };
         window.toggleAdmin = (s) => { isAdmin = s; document.getElementById('admin-tools').classList.toggle('hidden', !s); selectedId = null; renderShapes(); };
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
-        document.getElementById('admin-trigger').onclick = () => { adminClicks++; if(adminClicks >= 5) { toggleAdmin(true); adminClicks=0; } };
+        
+        // 修改後的隱藏觸發：點擊標題旁邊的隱形按鈕 5 次
+        document.getElementById('admin-trigger').onclick = () => { 
+            adminClicks++; 
+            if(adminClicks >= 5) { toggleAdmin(true); adminClicks=0; alert("管理模式啟動"); } 
+        };
 
         document.getElementById('btn-submit').onclick = async () => {
             const item = document.getElementById('in-item').value, nick = document.getElementById('in-nick').value || "匿名英雄";
