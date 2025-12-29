@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTCU 實境功德地圖 Fixed</title>
+    <title>NTCU 實境功德地圖 Ultimate Fixed</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -16,14 +16,16 @@
             overflow: hidden; cursor: crosshair;
         }
 
-        #shapes-layer, #controls-layer { position: absolute; inset: 0; z-index: 100; pointer-events: none; }
+        /* 圖層管理 */
+        #shapes-layer { position: absolute; inset: 0; z-index: 80; pointer-events: none; }
+        #controls-layer { position: absolute; inset: 0; z-index: 100; pointer-events: none; }
         #pins-layer { position: absolute; inset: 0; z-index: 90; pointer-events: none; }
 
+        /* 形狀基礎 */
         .building-shape { 
             position: absolute; transform-origin: center center; 
             pointer-events: auto; background: transparent; 
         }
-        
         .admin-view .building-shape { border: 1px dashed rgba(79, 70, 229, 0.4); }
 
         .s-rect { border-radius: 2px; }
@@ -33,11 +35,11 @@
 
         .selected-shape { 
             border: 2px solid #4f46e5 !important; 
-            background: rgba(79, 70, 229, 0.2) !important; 
+            background: rgba(79, 70, 229, 0.25) !important; 
         }
 
-        /* 關鍵：控制點樣式 */
-        .control-wrapper { position: absolute; pointer-events: auto; transform-origin: center center; z-index: 200; }
+        /* 控制把手 */
+        .control-wrapper { position: absolute; pointer-events: none; transform-origin: center center; }
         .handle { position: absolute; width: 14px; height: 14px; background: #fff; border: 2px solid #4f46e5; border-radius: 50%; cursor: se-resize; pointer-events: auto; }
         .rotate-handle { position: absolute; width: 18px; height: 18px; background: #4f46e5; border: 2px solid #fff; border-radius: 50%; cursor: grab; pointer-events: auto; }
         .rotate-line { position: absolute; width: 2px; background: #4f46e5; pointer-events: none; }
@@ -53,7 +55,7 @@
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
             <div>
                 <h1 class="text-3xl font-black text-slate-800">💎 NTCU 功德地圖 <button id="admin-trigger" class="opacity-0">.</button></h1>
-                <p class="text-slate-500 text-sm">三角形控制功能已完全修復。</p>
+                <p class="text-slate-500 text-sm">點擊區域標註遺失物 | 管理模式支援全形狀編輯</p>
             </div>
             <div class="flex bg-white p-3 rounded-3xl shadow-sm border border-slate-100 gap-6">
                 <div class="text-right flex flex-col"><span class="text-[9px] font-black text-slate-400">HERO</span><span id="hero-name" class="font-bold text-slate-700">訪客</span></div>
@@ -75,7 +77,7 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div class="lg:col-span-8 relative">
+            <div class="lg:col-span-8">
                 <div id="map-root" class="map-container">
                     <div id="shapes-layer"></div>
                     <div id="controls-layer"></div>
@@ -148,7 +150,8 @@
                 `<div class="flex justify-between items-center bg-white/10 p-2 rounded-xl">
                     <span>${i+1}. ${d.id}</span><span class="font-bold">${d.data().merit || 0} pts</span>
                 </div>`).join('');
-            const me = s.docs.find(d => d.id === document.getElementById('hero-name').innerText);
+            const currentNick = document.getElementById('hero-name').innerText;
+            const me = s.docs.find(d => d.id === currentNick);
             if(me) document.getElementById('hero-merit').innerText = me.data().merit;
         });
 
@@ -160,6 +163,11 @@
             const ry = (px - cx) * Math.sin(rad) + (py - cy) * Math.cos(rad);
             if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
             if (box.type === 'ellipse') return (Math.pow(rx, 2) / Math.pow(box.w/2, 2)) + (Math.pow(ry, 2) / Math.pow(box.h/2, 2)) <= 1;
+            if (box.type === 'capsule') {
+                const r = (box.w>=box.h)?box.h/2:box.w/2, len = (box.w>=box.h)?box.w-box.h:box.h-box.w;
+                const d = (box.w>=box.h)?Math.sqrt(Math.pow(rx-Math.max(-len/2,Math.min(len/2,rx)),2)+Math.pow(ry,2)):Math.sqrt(Math.pow(rx,2)+Math.pow(ry-Math.max(-len/2,Math.min(len/2,ry)),2));
+                return d <= r;
+            }
             if (box.type === 'triangle') {
                 const lx = rx + box.w/2; const ly = ry + box.h/2;
                 return (lx >= 0 && ly >= 0 && lx <= box.w && ly <= box.h && (lx/box.w + ly/box.h <= 1));
@@ -173,27 +181,26 @@
             sLayer.innerHTML = ''; cLayer.innerHTML = '';
 
             buildings.forEach((b, i) => {
-                // 渲染形狀
                 const el = document.createElement('div');
                 el.className = `building-shape ${selectedId === i ? 'selected-shape' : ''} s-${b.type}`;
                 el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg);`;
+                
                 el.onmousedown = (e) => {
                     e.stopPropagation();
-                    if (isAdmin) { selectedId = i; isDragging = true; startPos = getMousePos(e); renderShapes(); }
-                    else { handleMapClick(e); }
+                    if (isAdmin) { 
+                        selectedId = i; isDragging = true; startPos = getMousePos(e); renderShapes(); 
+                    } else { handleMapClick(e); }
                 };
                 sLayer.appendChild(el);
 
-                // 渲染控制點 (如果是管理員且選中)
                 if (isAdmin && selectedId === i) {
                     const ctrl = document.createElement('div');
                     ctrl.className = 'control-wrapper';
-                    ctrl.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg);`;
-                    
+                    ctrl.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg); pointer-events:none;`;
                     ctrl.innerHTML = `
-                        <div class="rotate-line" style="height:30px; top:-30px; left:50%;"></div>
-                        <div class="rotate-handle" style="top:-40px; left:50%; transform:translateX(-50%);" onmousedown="window.startRotate(event)"></div>
-                        <div class="handle" style="bottom:-7px; right:-7px;" onmousedown="window.startResize(event)"></div>
+                        <div class="rotate-line" style="height:30px; top:-30px; left:50%; position:absolute; width:2px; background:#4f46e5;"></div>
+                        <div class="rotate-handle" style="top:-40px; left:50%; transform:translateX(-50%); pointer-events:auto;" onmousedown="window.startRotate(event)"></div>
+                        <div class="handle" style="bottom:-7px; right:-7px; pointer-events:auto;" onmousedown="window.startResize(event)"></div>
                     `;
                     cLayer.appendChild(ctrl);
                 }
@@ -250,13 +257,11 @@
 
         window.startRotate = (e) => { e.stopPropagation(); isRotating = true; };
         window.startResize = (e) => { e.stopPropagation(); isResizing = true; };
-        
         window.setTool = async (type) => { 
             const n = prompt("區域名稱："); 
             if(n) { buildings.push({ x:45, y:45, w:10, h:10, angle:0, name:n, type }); selectedId = buildings.length-1; await setDoc(CAMPUS_DOC, { buildings }); } 
         };
-
-        window.deleteSelected = async () => { if(selectedId !== null && confirm("刪除該區域？")) { buildings.splice(selectedId, 1); selectedId = null; await setDoc(CAMPUS_DOC, { buildings }); } };
+        window.deleteSelected = async () => { if(selectedId !== null && confirm("刪除區域？")) { buildings.splice(selectedId, 1); selectedId = null; await setDoc(CAMPUS_DOC, { buildings }); } };
         window.toggleAdmin = (s) => { isAdmin = s; document.getElementById('admin-tools').classList.toggle('hidden', !s); document.getElementById('map-root').classList.toggle('admin-view', s); selectedId = null; renderShapes(); };
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
         document.getElementById('admin-trigger').onclick = () => { adminClicks++; if(adminClicks >= 5) toggleAdmin(true); };
