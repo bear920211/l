@@ -8,91 +8,56 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
-
         .map-container {
             position: relative; width: 100%; height: 600px;
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
-            border-radius: 2.5rem; border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            border-radius: 2.5rem; border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
             overflow: hidden; cursor: crosshair;
         }
-
-        /* 圖層管理 */
-        #shapes-layer { position: absolute; inset: 0; z-index: 80; pointer-events: none; }
-        #controls-layer { position: absolute; inset: 0; z-index: 100; pointer-events: none; }
-        #pins-layer { position: absolute; inset: 0; z-index: 90; pointer-events: none; }
-
-        /* 形狀基礎 */
-        .building-shape { 
-            position: absolute; transform-origin: center center; 
-            pointer-events: auto; background: transparent; 
-        }
-        .admin-view .building-shape { border: 1px dashed rgba(79, 70, 229, 0.4); }
-
+        #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
+        #shapes-layer { z-index: 80; }
+        #pins-layer { z-index: 90; }
+        .building-shape { position: absolute; transform-origin: center; pointer-events: auto; background: transparent; }
         .s-rect { border-radius: 2px; }
         .s-capsule { border-radius: 999px !important; }
         .s-ellipse { border-radius: 50% !important; }
         .s-triangle { clip-path: polygon(0 0, 100% 0, 0 100%); }
-
-        .selected-shape { 
-            border: 2px solid #4f46e5 !important; 
-            background: rgba(79, 70, 229, 0.25) !important; 
-        }
-
-        /* 控制把手 */
-        .control-wrapper { position: absolute; pointer-events: none; transform-origin: center center; }
-        .handle { position: absolute; width: 14px; height: 14px; background: #fff; border: 2px solid #4f46e5; border-radius: 50%; cursor: se-resize; pointer-events: auto; }
-        .rotate-handle { position: absolute; width: 18px; height: 18px; background: #4f46e5; border: 2px solid #fff; border-radius: 50%; cursor: grab; pointer-events: auto; }
-        .rotate-line { position: absolute; width: 2px; background: #4f46e5; pointer-events: none; }
-
-        .tool-btn { @apply px-3 py-2 rounded-xl text-[11px] text-white font-bold transition-all hover:scale-105; }
-        .floating-pin { animation: float 2s ease-in-out infinite; position: absolute; pointer-events: none; transform: translate(-50%, -100%); z-index: 70; }
+        .floating-pin { animation: float 2s ease-in-out infinite; position: absolute; transform: translate(-50%, -100%); }
         @keyframes float { 0%, 100% { transform: translate(-50%, -100%) translateY(0px); } 50% { transform: translate(-50%, -100%) translateY(-10px); } }
     </style>
 </head>
 <body class="p-4 md:p-8">
 
     <div class="max-w-6xl mx-auto">
-        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
+        <header class="flex justify-between items-center mb-8">
             <div>
-                <h1 class="text-3xl font-black text-slate-800">💎 NTCU 你丟我撿 <button id="admin-trigger" class="opacity-0">.</button></h1>
-                <p class="text-slate-500 text-sm">點擊區域登錄撿到的遺失物</p>
+                <h1 class="text-3xl font-black text-slate-800">💎 NTCU 你丟我撿</h1>
+                <p class="text-slate-500 text-sm">點擊地圖標註遺失物</p>
             </div>
-            <div class="flex bg-white p-3 rounded-3xl shadow-sm border border-slate-100 gap-6">
-                <div class="text-right flex flex-col"><span class="text-[9px] font-black text-slate-400">HERO</span><span id="hero-name" class="font-bold text-slate-700">訪客</span></div>
-                <div class="text-right flex flex-col"><span class="text-[9px] font-black text-slate-400">MERIT</span><span id="hero-merit" class="text-xl font-black text-indigo-600">0</span></div>
+            <div class="bg-white p-3 px-6 rounded-3xl shadow-sm border border-slate-100 text-right">
+                <span class="text-[9px] font-black text-slate-400 block">TOP HERO</span>
+                <span id="top-hero-name" class="text-xl font-black text-indigo-600">載入中...</span>
             </div>
         </header>
-
-        <div id="admin-tools" class="hidden mb-6 p-4 bg-slate-900 rounded-3xl flex flex-wrap items-center justify-between gap-4 shadow-xl">
-            <div class="flex gap-2">
-                <button onclick="setTool('rect')" class="tool-btn bg-indigo-600">＋ 矩形</button>
-                <button onclick="setTool('capsule')" class="tool-btn bg-purple-600">＋ 膠囊</button>
-                <button onclick="setTool('ellipse')" class="tool-btn bg-pink-600">＋ 橢圓</button>
-                <button onclick="setTool('triangle')" class="tool-btn bg-amber-600">＋ 三角形</button>
-            </div>
-            <div class="flex gap-4 items-center">
-                <button onclick="deleteSelected()" class="text-red-400 text-xs font-bold px-3 py-1">刪除</button>
-                <button onclick="toggleAdmin(false)" class="bg-white/10 text-white text-xs px-4 py-1.5 rounded-xl font-bold">結束</button>
-            </div>
-        </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div class="lg:col-span-8">
                 <div id="map-root" class="map-container" onclick="handleMapClick(event)">
                     <div id="shapes-layer"></div>
-                    <div id="controls-layer"></div>
                     <div id="pins-layer"></div>
                 </div>
             </div>
             <div class="lg:col-span-4 flex flex-col gap-6">
                 <div class="bg-indigo-600 rounded-[2.5rem] p-6 text-white shadow-xl">
-                    <h3 class="font-bold mb-4">🏆 功德榜</h3>
+                    <h3 class="font-bold mb-4 flex justify-between items-center">
+                        🏆 功德榜 <span class="text-[10px] opacity-70">輸入相同暱稱可累積</span>
+                    </h3>
                     <div id="leaderboard" class="space-y-3 text-xs"></div>
                 </div>
                 <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
-                    <div class="p-5 border-b bg-slate-50 font-black flex justify-between items-center text-slate-600 text-sm">
-                        <span>待認領遺失物</span>
-                        <span id="items-count" class="bg-indigo-100 text-indigo-600 px-2 rounded-full text-[10px]">0</span>
+                    <div class="p-5 border-b bg-slate-50 font-black text-slate-600 text-sm flex justify-between">
+                        <span>待認領清單</span>
+                        <span id="items-count" class="text-indigo-500">0</span>
                     </div>
                     <div id="items-list" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
                 </div>
@@ -100,20 +65,54 @@
         </div>
     </div>
 
-    <div id="report-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[300] p-4 backdrop-blur-sm">
+    <div id="report-modal" class="fixed inset-0 bg-slate-900/40 hidden flex items-center justify-center z-[300] p-4 backdrop-blur-sm">
         <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-8 shadow-2xl text-center">
-            <div id="location-name" class="inline-block bg-indigo-50 text-indigo-700 text-xs font-black px-4 py-2 rounded-full mb-4">定位中...</div>
-            <input type="text" id="in-item" placeholder="發現了什麼？" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl mb-4 font-bold outline-none">
-            <input type="text" id="in-nick" placeholder="您的英雄暱稱" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl mb-6 font-bold outline-none">
-            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg">確認標註 (+50 功德)</button>
-            <button onclick="closeModals()" class="w-full text-slate-400 font-bold py-2 text-xs mt-2">取消</button>
+            <span id="location-name" class="inline-block bg-indigo-50 text-indigo-600 text-xs font-black px-5 py-2 rounded-full mb-6">📍 定位中...</span>
+            <div class="space-y-3 mb-6">
+                <input type="text" id="in-nick" placeholder="您的英雄暱稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
+                <input type="text" id="in-item" placeholder="發現了什麼？ (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
+                <input type="text" id="in-desc" placeholder="詳細描述 (顏色、特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
+                
+                <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50" onclick="document.getElementById('in-file').click()">
+                    <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
+                    <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-32 object-cover"></div>
+                    <div id="upload-placeholder" class="text-slate-400 text-xs py-2 flex flex-col items-center">
+                        <span class="text-lg">📷</span>
+                        <span>點擊上傳照片 (請小於 800KB)</span>
+                    </div>
+                </div>
+            </div>
+            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition-all">確認標註 (+50 功德)</button>
+            <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs">取消</button>
+        </div>
+    </div>
+
+    <div id="detail-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[400] p-4 backdrop-blur-md">
+        <div class="bg-white rounded-[2.5rem] max-w-sm w-full overflow-hidden shadow-2xl">
+            <div class="w-full h-56 bg-slate-100 flex items-center justify-center overflow-hidden">
+                <img id="detail-img" src="" class="w-full h-full object-cover">
+                <div id="no-img-placeholder" class="hidden text-slate-300 font-bold text-sm">📷 無照片預覽</div>
+            </div>
+            <div class="p-8">
+                <h2 id="detail-name" class="text-2xl font-black text-slate-800">物品名稱</h2>
+                <p id="detail-loc" class="text-indigo-500 font-bold text-sm mb-4">📍 位置</p>
+                <div class="bg-slate-50 rounded-xl p-4 mb-6">
+                    <p class="text-[9px] text-slate-400 font-black mb-1">拾獲英雄：<span id="detail-finder" class="text-slate-700"></span></p>
+                    <p id="detail-desc" class="text-slate-600 text-sm">描述內容...</p>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg hover:bg-emerald-600 active:scale-95 transition-all">確認認領</button>
+                    <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // --- Firebase 設定 ---
         const firebaseConfig = {
             apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
             authDomain: "lostandnotfound-6d007.firebaseapp.com",
@@ -129,38 +128,144 @@
         const LOST_COLL = collection(db, "lost_items_v2");
         const USER_COLL = collection(db, "users_v2");
 
-        let buildings = [], lostItems = [], selectedId = null, isAdmin = false;
-        let isDragging = false, isRotating = false, isResizing = false;
-        let startPos = { x:0, y:0 }, adminClicks = 0, clickPos = { x:50, y:50 };
+        let buildings = [], lostItems = [], clickPos = {x:50, y:50};
 
-        const savedNick = localStorage.getItem('ntcu_nick');
-        if(savedNick) { 
-            document.getElementById('in-nick').value = savedNick;
-            document.getElementById('hero-name').innerText = savedNick;
-        }
-
+        // --- 1. 資料監聽與渲染 ---
         onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
-        onSnapshot(LOST_COLL, (s) => {
-            lostItems = s.docs.map(d => ({ id: d.id, ...d.data() }));
+        onSnapshot(LOST_COLL, (s) => { 
+            lostItems = s.docs.map(d => ({ id: d.id, ...d.data() })); 
             document.getElementById('items-count').innerText = lostItems.length;
-            renderPins(); renderList();
+            renderPins(); renderList(); 
         });
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
-            document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => 
-                `<div class="flex justify-between items-center bg-white/10 p-2 rounded-xl">
-                    <span>${i+1}. ${d.id}</span><span class="font-bold">${d.data().merit || 0} pts</span>
-                </div>`).join('');
-            const currentNick = document.getElementById('hero-name').innerText;
-            const me = s.docs.find(d => d.id === currentNick);
-            if(me) document.getElementById('hero-merit').innerText = me.data().merit;
+            const list = s.docs.map((d, i) => `<div class="flex justify-between p-2 bg-white/10 rounded-xl"><span>${i+1}. ${d.id}</span><b>${d.data().merit || 0} pts</b></div>`).join('');
+            document.getElementById('leaderboard').innerHTML = list || "尚無排名";
+            if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
+        // --- 2. 核心功能：地圖點擊 ---
+        window.handleMapClick = (e) => {
+            const r = document.getElementById('map-root').getBoundingClientRect();
+            clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
+            let hit = buildings.find(b => isPointInShape(clickPos.x, clickPos.y, b));
+            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
+            
+            // 開啟時清空所有欄位
+            document.getElementById('in-nick').value = ""; 
+            document.getElementById('in-item').value = "";
+            document.getElementById('in-desc').value = ""; 
+            document.getElementById('in-file').value = "";
+            document.getElementById('img-preview').src = "";
+            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('upload-placeholder').classList.remove('hidden');
+            document.getElementById('report-modal').classList.remove('hidden');
+        };
+
+        // --- 3. 核心功能：暱稱即時檢查 ---
+        document.getElementById('in-nick').onblur = async function() {
+            const n = this.value.trim(); if(!n) return;
+            const snap = await getDoc(doc(USER_COLL, n));
+            if(snap.exists()) alert(`🔍 偵測到傳奇人物！\n「${n}」目前已累積 ${snap.data().merit || 0} 功德。\n歡迎回來！`);
+        };
+
+        // --- 4. 核心功能：照片預覽 (轉 Base64) ---
+        window.previewImage = (input) => {
+            const f = input.files[0]; if(!f) return;
+            if(f.size > 850000) { alert("照片太大了！請截圖縮小或換一張 (需小於 800KB)"); input.value = ""; return; }
+            
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('img-preview').src = e.target.result;
+                document.getElementById('preview-container').classList.remove('hidden');
+                document.getElementById('upload-placeholder').classList.add('hidden');
+            };
+            reader.readAsDataURL(f);
+        };
+
+        // --- 5. 核心功能：送出標註 ---
+        document.getElementById('btn-submit').onclick = async () => {
+            const nick = document.getElementById('in-nick').value.trim();
+            const item = document.getElementById('in-item').value.trim();
+            const desc = document.getElementById('in-desc').value.trim();
+            const imgData = document.getElementById('img-preview').src;
+
+            if(!nick || !item) return alert("暱稱與物品名稱是必填的喔！");
+
+            const btn = document.getElementById('btn-submit');
+            btn.innerText = "儲存中..."; btn.disabled = true;
+
+            try {
+                // 儲存至 Firestore (imageUrl 欄位存的是 Base64 字串)
+                await setDoc(doc(LOST_COLL), { 
+                    name: item, finder: nick, description: desc,
+                    location: document.getElementById('location-name').innerText.replace('📍 ',''),
+                    imageUrl: imgData.startsWith('data:image') ? imgData : "",
+                    x: clickPos.x, y: clickPos.y, time: Date.now() 
+                });
+                // 累計功德
+                await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
+                
+                alert("標註成功！感謝英雄的協助。");
+                closeModals();
+            } catch (err) { alert("儲存失敗，請檢查網路連線。"); }
+            btn.innerText = "確認標註 (+50 功德)"; btn.disabled = false;
+        };
+
+        // --- 6. 核心功能：詳情視窗與認領 ---
+        window.openDetail = (id) => {
+            const item = lostItems.find(i => i.id === id); if(!item) return;
+            document.getElementById('detail-name').innerText = item.name;
+            document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
+            document.getElementById('detail-finder').innerText = item.finder;
+            document.getElementById('detail-desc').innerText = item.description || "這位英雄沒留下詳細描述。";
+            
+            const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
+            if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
+            else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
+            
+            document.getElementById('btn-claim-now').onclick = () => claimItem(item.id, item.finder);
+            document.getElementById('detail-modal').classList.remove('hidden');
+        };
+
+        window.claimItem = async (id, f) => {
+            if(confirm(`確認認領？\n認領後會給予拾獲者「${f}」額外 20 點功德！`)) {
+                await deleteDoc(doc(db, "lost_items_v2", id));
+                await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true });
+                closeDetail();
+                alert("認領完成！");
+            }
+        };
+
+        // --- 輔助渲染函數 ---
+        function renderShapes() {
+            const layer = document.getElementById('shapes-layer'); layer.innerHTML = '';
+            buildings.forEach(b => {
+                const el = document.createElement('div'); el.className = `building-shape s-${b.type}`;
+                el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle||0}deg);`;
+                layer.appendChild(el);
+            });
+        }
+        function renderPins() {
+            const layer = document.getElementById('pins-layer'); layer.innerHTML = '';
+            lostItems.forEach(i => {
+                const p = document.createElement('div'); p.className = 'floating-pin';
+                p.style.left = `${i.x}%`; p.style.top = `${i.y}%`;
+                p.innerHTML = `<div class="bg-indigo-600 text-white text-[9px] px-2 py-1 rounded shadow mb-1 font-bold">${i.name}</div><div class="w-3 h-3 bg-white rounded-full border-2 border-indigo-600 mx-auto"></div>`;
+                layer.appendChild(p);
+            });
+        }
+        function renderList() {
+            document.getElementById('items-list').innerHTML = lostItems.map(i => `
+                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border flex items-center gap-3 cursor-pointer hover:border-indigo-400 transition-all">
+                    <div class="w-10 h-10 bg-slate-50 rounded-lg flex-shrink-0 flex items-center justify-center text-[8px] text-slate-300 overflow-hidden">
+                        ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '無照片'}
+                    </div>
+                    <div class="flex-1"><div class="font-bold text-sm text-slate-700">${i.name}</div><div class="text-[9px] text-indigo-400 font-bold">📍 ${i.location}</div></div>
+                </div>`).join('') || '<div class="text-center text-slate-300 text-xs py-10">尚無遺失物</div>';
+        }
         function isPointInShape(px, py, box) {
-            const rad = -box.angle * Math.PI / 180;
-            const cx = box.x + box.w / 2;
-            const cy = box.y + box.h / 2;
-            const rx = (px - cx) * Math.cos(rad) - (py - cy) * Math.sin(rad);
-            const ry = (px - cx) * Math.sin(rad) + (py - cy) * Math.cos(rad);
+            const rad = -box.angle * Math.PI / 180, cx = box.x + box.w/2, cy = box.y + box.h/2;
+            const rx = (px-cx)*Math.cos(rad) - (py-cy)*Math.sin(rad), ry = (px-cx)*Math.sin(rad) + (py-cy)*Math.cos(rad);
             if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
             if (box.type === 'ellipse') return (Math.pow(rx, 2) / Math.pow(box.w/2, 2)) + (Math.pow(ry, 2) / Math.pow(box.h/2, 2)) <= 1;
             if (box.type === 'capsule') {
@@ -168,167 +273,10 @@
                 const d = (box.w>=box.h)?Math.sqrt(Math.pow(rx-Math.max(-len/2,Math.min(len/2,rx)),2)+Math.pow(ry,2)):Math.sqrt(Math.pow(rx,2)+Math.pow(ry-Math.max(-len/2,Math.min(len/2,ry)),2));
                 return d <= r;
             }
-            if (box.type === 'triangle') {
-                const lx = rx + box.w/2; const ly = ry + box.h/2;
-                return (lx >= 0 && ly >= 0 && lx <= box.w && ly <= box.h && (lx/box.w + ly/box.h <= 1));
-            }
             return false;
         }
-
-        function renderShapes() {
-            const sLayer = document.getElementById('shapes-layer');
-            const cLayer = document.getElementById('controls-layer');
-            sLayer.innerHTML = ''; cLayer.innerHTML = '';
-
-            buildings.forEach((b, i) => {
-                const el = document.createElement('div');
-                el.className = `building-shape ${selectedId === i ? 'selected-shape' : ''} s-${b.type}`;
-                el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg);`;
-                
-                el.onmousedown = (e) => {
-                    e.stopPropagation();
-                    if (isAdmin) { 
-                        selectedId = i; isDragging = true; startPos = getMousePos(e); renderShapes(); 
-                    } else { 
-                        // 非管理模式下，點擊建築物觸發登錄
-                        handleMapClick(e); 
-                    }
-                };
-                sLayer.appendChild(el);
-
-                if (isAdmin && selectedId === i) {
-                    const ctrl = document.createElement('div');
-                    ctrl.className = 'control-wrapper';
-                    ctrl.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg); pointer-events:none;`;
-                    ctrl.innerHTML = `
-                        <div class="rotate-line" style="height:30px; top:-30px; left:50%; position:absolute; width:2px; background:#4f46e5;"></div>
-                        <div class="rotate-handle" style="top:-40px; left:50%; transform:translateX(-50%); pointer-events:auto;" onmousedown="window.startRotate(event)"></div>
-                        <div class="handle" style="bottom:-7px; right:-7px; pointer-events:auto;" onmousedown="window.startResize(event)"></div>
-                    `;
-                    cLayer.appendChild(ctrl);
-                }
-            });
-        }
-
-        function renderPins() {
-            const layer = document.getElementById('pins-layer'); layer.innerHTML = '';
-            lostItems.forEach(item => {
-                const p = document.createElement('div'); p.className = 'floating-pin';
-                p.style.left = `${item.x}%`; p.style.top = `${item.y}%`;
-                p.innerHTML = `<div class="bg-indigo-600 text-white text-[9px] px-2 py-1 rounded shadow mb-1 font-bold whitespace-nowrap">${item.name}</div><div class="w-3 h-3 bg-white rounded-full border-2 border-indigo-600 mx-auto"></div>`;
-                layer.appendChild(p);
-            });
-        }
-
-        function renderList() {
-            document.getElementById('items-list').innerHTML = lostItems.length ? lostItems.map(item => `
-                <div class="p-4 bg-white rounded-2xl border flex justify-between items-center shadow-sm">
-                    <div><div class="font-bold text-sm text-slate-700">${item.name}</div><div class="text-[10px] text-indigo-500 font-black">📍 ${item.location}</div></div>
-                    <button onclick="window.claimItem('${item.id}','${item.finder}')" class="bg-emerald-500 text-white text-[10px] px-3 py-1 rounded-lg font-bold">認領</button>
-                </div>`).join('') : '<div class="text-center py-10 text-slate-300 text-xs font-bold">目前沒有遺失物</div>';
-        }
-
-        // 修正後的點擊處理函數
-        window.handleMapClick = (e) => {
-            if (isAdmin && isDragging) return; // 管理模式拖曳時不觸發
-            
-            clickPos = getMousePos(e);
-            let hit = -1;
-            
-            // 遍歷所有建築形狀看有沒有點中
-            for (let i = buildings.length-1; i>=0; i--) { 
-                if(isPointInShape(clickPos.x, clickPos.y, buildings[i])) { 
-                    hit = i; 
-                    break; 
-                } 
-            }
-            
-            // 沒點中建築物則顯示「校園開放區域」
-            const locationName = (hit !== -1) ? buildings[hit].name : "校園開放區域";
-            
-            document.getElementById('location-name').innerText = `📍 ${locationName}`;
-            document.getElementById('report-modal').classList.remove('hidden');
-        }
-
-        window.addEventListener('mousemove', (e) => {
-            if (!isAdmin || selectedId === null) return;
-            const cur = getMousePos(e), b = buildings[selectedId];
-            if (isDragging) { b.x += (cur.x - startPos.x); b.y += (cur.y - startPos.y); }
-            else if (isRotating) { 
-                const cx = b.x + b.w/2, cy = b.y + b.h/2; 
-                b.angle = Math.atan2(cur.y - cy, cur.x - cx) * 180 / Math.PI + 90; 
-            }
-            else if (isResizing) { 
-                b.w = Math.max(1, b.w + (cur.x - (b.x + b.w))); 
-                b.h = Math.max(1, b.h + (cur.y - (b.y + b.h))); 
-            }
-            startPos = cur; renderShapes();
-        });
-
-        window.addEventListener('mouseup', async () => { 
-            if (isDragging || isRotating || isResizing) { 
-                await setDoc(CAMPUS_DOC, { buildings }); 
-                isDragging = isRotating = isResizing = false; 
-            } 
-        });
-
-        window.startRotate = (e) => { e.stopPropagation(); isRotating = true; };
-        window.startResize = (e) => { e.stopPropagation(); isResizing = true; };
-        
-        window.setTool = async (type) => { 
-            const n = prompt("區域名稱："); 
-            if(n) { 
-                buildings.push({ x:45, y:45, w:10, h:10, angle:0, name:n, type }); 
-                selectedId = buildings.length-1; 
-                await setDoc(CAMPUS_DOC, { buildings }); 
-            } 
-        };
-
-        window.deleteSelected = async () => { 
-            if(selectedId !== null && confirm("刪除區域？")) { 
-                buildings.splice(selectedId, 1); 
-                selectedId = null; 
-                await setDoc(CAMPUS_DOC, { buildings }); 
-            } 
-        };
-
-        window.toggleAdmin = (s) => { 
-            isAdmin = s; 
-            document.getElementById('admin-tools').classList.toggle('hidden', !s); 
-            document.getElementById('map-root').classList.toggle('admin-view', s); 
-            selectedId = null; 
-            renderShapes(); 
-        };
-
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
-        document.getElementById('admin-trigger').onclick = () => { 
-            adminClicks++; 
-            if(adminClicks >= 5) toggleAdmin(true); 
-        };
-
-        document.getElementById('btn-submit').onclick = async () => {
-            const item = document.getElementById('in-item').value, nick = document.getElementById('in-nick').value.trim() || "匿名英雄";
-            if(!item) return;
-            localStorage.setItem('ntcu_nick', nick);
-            document.getElementById('hero-name').innerText = nick;
-            const loc = document.getElementById('location-name').innerText.replace('📍 ','');
-            await setDoc(doc(LOST_COLL), { name:item, finder:nick, location:loc, x:clickPos.x, y:clickPos.y, time:Date.now() });
-            await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
-            closeModals(); 
-            document.getElementById('in-item').value = "";
-        };
-
-        window.claimItem = async (id, f) => { 
-            if(confirm("確認領取？")) { 
-                await deleteDoc(doc(db, "lost_items_v2", id)); 
-                await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true }); 
-            } 
-        };
-
-        function getMousePos(e) { 
-            const r = document.getElementById('map-root').getBoundingClientRect(); 
-            return { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 }; 
-        }
+        window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
 </body>
 </html>
