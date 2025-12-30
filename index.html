@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTCU 你丟我撿</title>
+    <title>NTCU 你丟我撿 - 精確定位版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -21,7 +21,6 @@
         .s-rect { border-radius: 2px; }
         .s-capsule { border-radius: 999px !important; }
         .s-ellipse { border-radius: 50% !important; }
-        .s-triangle { clip-path: polygon(0 0, 100% 0, 0 100%); }
         .floating-pin { animation: float 2s ease-in-out infinite; position: absolute; transform: translate(-50%, -100%); }
         @keyframes float { 0%, 100% { transform: translate(-50%, -100%) translateY(0px); } 50% { transform: translate(-50%, -100%) translateY(-10px); } }
     </style>
@@ -32,7 +31,7 @@
         <header class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-black text-slate-800">💎 NTCU 你丟我撿</h1>
-                <p class="text-slate-500 text-sm">點擊地圖標註遺失物</p>
+                <p class="text-slate-500 text-sm">點擊地圖標註遺失物 (精確樓層定位版)</p>
             </div>
             <div class="bg-white p-3 px-6 rounded-3xl shadow-sm border border-slate-100 text-right">
                 <span class="text-[9px] font-black text-slate-400 block">TOP HERO</span>
@@ -49,9 +48,7 @@
             </div>
             <div class="lg:col-span-4 flex flex-col gap-6">
                 <div class="bg-indigo-600 rounded-[2.5rem] p-6 text-white shadow-xl">
-                    <h3 class="font-bold mb-4 flex justify-between items-center">
-                        🏆 功德榜 <span class="text-[10px] opacity-70">輸入相同暱稱可累積</span>
-                    </h3>
+                    <h3 class="font-bold mb-4">🏆 功德榜</h3>
                     <div id="leaderboard" class="space-y-3 text-xs"></div>
                 </div>
                 <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
@@ -69,20 +66,18 @@
         <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-8 shadow-2xl text-center">
             <span id="location-name" class="inline-block bg-indigo-50 text-indigo-600 text-xs font-black px-5 py-2 rounded-full mb-6">📍 定位中...</span>
             <div class="space-y-3 mb-6">
-                <input type="text" id="in-nick" placeholder="暱稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
+                <input type="text" id="in-nick" placeholder="您的英雄暱稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
                 <input type="text" id="in-item" placeholder="發現了什麼？ (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
-                <input type="text" id="in-desc" placeholder="詳細描述 (顏色、特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
+                <input type="text" id="in-floor" placeholder="具體位置 (例：3樓302教室前門)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
+                <input type="text" id="in-desc" placeholder="詳細描述 (物品特徵、顏色)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
                 
                 <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-32 object-cover"></div>
-                    <div id="upload-placeholder" class="text-slate-400 text-xs py-2 flex flex-col items-center">
-                        <span class="text-lg">📷</span>
-                        <span>點擊上傳照片 (請小於 800KB)</span>
-                    </div>
+                    <div id="upload-placeholder" class="text-slate-400 text-[10px] py-2">📷 點擊拍下照片 (請小於 800KB)</div>
                 </div>
             </div>
-            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition-all">確認標註 (+50 功德)</button>
+            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg">確認標註 (+50 功德)</button>
             <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs">取消</button>
         </div>
     </div>
@@ -96,12 +91,20 @@
             <div class="p-8">
                 <h2 id="detail-name" class="text-2xl font-black text-slate-800">物品名稱</h2>
                 <p id="detail-loc" class="text-indigo-500 font-bold text-sm mb-4">📍 位置</p>
-                <div class="bg-slate-50 rounded-xl p-4 mb-6">
-                    <p class="text-[9px] text-slate-400 font-black mb-1">拾獲英雄：<span id="detail-finder" class="text-slate-700"></span></p>
-                    <p id="detail-desc" class="text-slate-600 text-sm">描述內容...</p>
+                
+                <div class="space-y-4 mb-6 text-left">
+                    <div class="bg-indigo-50 rounded-xl p-4">
+                        <p class="text-[9px] text-indigo-400 font-black mb-1">具體位置</p>
+                        <p id="detail-floor" class="text-indigo-800 font-bold text-sm">尚未提供詳細樓層</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-4">
+                        <p class="text-[9px] text-slate-400 font-black mb-1">物品描述 / 拾獲者：<span id="detail-finder"></span></p>
+                        <p id="detail-desc" class="text-slate-600 text-sm">描述內容...</p>
+                    </div>
                 </div>
+
                 <div class="flex gap-2">
-                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg hover:bg-emerald-600 active:scale-95 transition-all">確認認領</button>
+                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg">確認認領</button>
                     <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
                 </div>
             </div>
@@ -112,7 +115,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- Firebase 設定 ---
         const firebaseConfig = {
             apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
             authDomain: "lostandnotfound-6d007.firebaseapp.com",
@@ -130,7 +132,6 @@
 
         let buildings = [], lostItems = [], clickPos = {x:50, y:50};
 
-        // --- 1. 資料監聽與渲染 ---
         onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
         onSnapshot(LOST_COLL, (s) => { 
             lostItems = s.docs.map(d => ({ id: d.id, ...d.data() })); 
@@ -143,36 +144,23 @@
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
-        // --- 2. 核心功能：地圖點擊 ---
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
             let hit = buildings.find(b => isPointInShape(clickPos.x, clickPos.y, b));
             document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
-            
-            // 開啟時清空所有欄位
-            document.getElementById('in-nick').value = ""; 
-            document.getElementById('in-item').value = "";
-            document.getElementById('in-desc').value = ""; 
-            document.getElementById('in-file').value = "";
-            document.getElementById('img-preview').src = "";
-            document.getElementById('preview-container').classList.add('hidden');
-            document.getElementById('upload-placeholder').classList.remove('hidden');
             document.getElementById('report-modal').classList.remove('hidden');
         };
 
-        // --- 3. 核心功能：暱稱即時檢查 ---
         document.getElementById('in-nick').onblur = async function() {
             const n = this.value.trim(); if(!n) return;
             const snap = await getDoc(doc(USER_COLL, n));
-            if(snap.exists()) alert(`🔍 偵測到傳奇人物！\n「${n}」目前已累積 ${snap.data().merit || 0} 功德。\n歡迎回來！`);
+            if(snap.exists()) alert(`🔍 傳奇英雄「${n}」已有 ${snap.data().merit || 0} 功德！`);
         };
 
-        // --- 4. 核心功能：照片預覽 (轉 Base64) ---
         window.previewImage = (input) => {
             const f = input.files[0]; if(!f) return;
-            if(f.size > 850000) { alert("照片太大了！請截圖縮小或換一張 (需小於 800KB)"); input.value = ""; return; }
-            
+            if(f.size > 850000) { alert("照片太大囉！請小於 800KB"); input.value = ""; return; }
             const reader = new FileReader();
             reader.onload = e => {
                 document.getElementById('img-preview').src = e.target.result;
@@ -182,42 +170,38 @@
             reader.readAsDataURL(f);
         };
 
-        // --- 5. 核心功能：送出標註 ---
         document.getElementById('btn-submit').onclick = async () => {
             const nick = document.getElementById('in-nick').value.trim();
             const item = document.getElementById('in-item').value.trim();
+            const floor = document.getElementById('in-floor').value.trim();
             const desc = document.getElementById('in-desc').value.trim();
             const imgData = document.getElementById('img-preview').src;
 
-            if(!nick || !item) return alert("暱稱與物品名稱是必填的喔！");
+            if(!nick || !item) return alert("暱稱與物品名稱必填！");
 
             const btn = document.getElementById('btn-submit');
-            btn.innerText = "儲存中..."; btn.disabled = true;
+            btn.innerText = "上傳中..."; btn.disabled = true;
 
             try {
-                // 儲存至 Firestore (imageUrl 欄位存的是 Base64 字串)
                 await setDoc(doc(LOST_COLL), { 
-                    name: item, finder: nick, description: desc,
+                    name: item, finder: nick, description: desc, floor_info: floor,
                     location: document.getElementById('location-name').innerText.replace('📍 ',''),
                     imageUrl: imgData.startsWith('data:image') ? imgData : "",
                     x: clickPos.x, y: clickPos.y, time: Date.now() 
                 });
-                // 累計功德
                 await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
-                
-                alert("標註成功！感謝英雄的協助。");
                 closeModals();
-            } catch (err) { alert("儲存失敗，請檢查網路連線。"); }
+            } catch (err) { alert("儲存失敗！"); }
             btn.innerText = "確認標註 (+50 功德)"; btn.disabled = false;
         };
 
-        // --- 6. 核心功能：詳情視窗與認領 ---
         window.openDetail = (id) => {
             const item = lostItems.find(i => i.id === id); if(!item) return;
             document.getElementById('detail-name').innerText = item.name;
             document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
+            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供具體樓層";
             document.getElementById('detail-finder').innerText = item.finder;
-            document.getElementById('detail-desc').innerText = item.description || "這位英雄沒留下詳細描述。";
+            document.getElementById('detail-desc').innerText = item.description || "英雄很低調，沒留下描述。";
             
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
             if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
@@ -228,15 +212,13 @@
         };
 
         window.claimItem = async (id, f) => {
-            if(confirm(`確認認領？\n認領後會給予拾獲者「${f}」額外 20 點功德！`)) {
+            if(confirm(`確認領取？將給予「${f}」20 功德！`)) {
                 await deleteDoc(doc(db, "lost_items_v2", id));
                 await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true });
                 closeDetail();
-                alert("認領完成！");
             }
         };
 
-        // --- 輔助渲染函數 ---
         function renderShapes() {
             const layer = document.getElementById('shapes-layer'); layer.innerHTML = '';
             buildings.forEach(b => {
@@ -256,11 +238,11 @@
         }
         function renderList() {
             document.getElementById('items-list').innerHTML = lostItems.map(i => `
-                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border flex items-center gap-3 cursor-pointer hover:border-indigo-400 transition-all">
+                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border flex items-center gap-3 cursor-pointer hover:border-indigo-400">
                     <div class="w-10 h-10 bg-slate-50 rounded-lg flex-shrink-0 flex items-center justify-center text-[8px] text-slate-300 overflow-hidden">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '無照片'}
                     </div>
-                    <div class="flex-1"><div class="font-bold text-sm text-slate-700">${i.name}</div><div class="text-[9px] text-indigo-400 font-bold">📍 ${i.location}</div></div>
+                    <div class="flex-1"><div class="font-bold text-sm text-slate-700">${i.name}</div><div class="text-[9px] text-indigo-400">📍 ${i.location}</div></div>
                 </div>`).join('') || '<div class="text-center text-slate-300 text-xs py-10">尚無遺失物</div>';
         }
         function isPointInShape(px, py, box) {
@@ -268,11 +250,6 @@
             const rx = (px-cx)*Math.cos(rad) - (py-cy)*Math.sin(rad), ry = (px-cx)*Math.sin(rad) + (py-cy)*Math.cos(rad);
             if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
             if (box.type === 'ellipse') return (Math.pow(rx, 2) / Math.pow(box.w/2, 2)) + (Math.pow(ry, 2) / Math.pow(box.h/2, 2)) <= 1;
-            if (box.type === 'capsule') {
-                const r = (box.w>=box.h)?box.h/2:box.w/2, len = (box.w>=box.h)?box.w-box.h:box.h-box.w;
-                const d = (box.w>=box.h)?Math.sqrt(Math.pow(rx-Math.max(-len/2,Math.min(len/2,rx)),2)+Math.pow(ry,2)):Math.sqrt(Math.pow(rx,2)+Math.pow(ry-Math.max(-len/2,Math.min(len/2,ry)),2));
-                return d <= r;
-            }
             return false;
         }
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
