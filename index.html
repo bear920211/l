@@ -78,7 +78,7 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div class="lg:col-span-8">
-                <div id="map-root" class="map-container">
+                <div id="map-root" class="map-container" onclick="handleMapClick(event)">
                     <div id="shapes-layer"></div>
                     <div id="controls-layer"></div>
                     <div id="pins-layer"></div>
@@ -189,7 +189,10 @@
                     e.stopPropagation();
                     if (isAdmin) { 
                         selectedId = i; isDragging = true; startPos = getMousePos(e); renderShapes(); 
-                    } else { handleMapClick(e); }
+                    } else { 
+                        // 非管理模式下，點擊建築物觸發登錄
+                        handleMapClick(e); 
+                    }
                 };
                 sLayer.appendChild(el);
 
@@ -225,11 +228,25 @@
                 </div>`).join('') : '<div class="text-center py-10 text-slate-300 text-xs font-bold">目前沒有遺失物</div>';
         }
 
-        function handleMapClick(e) {
+        // 修正後的點擊處理函數
+        window.handleMapClick = (e) => {
+            if (isAdmin && isDragging) return; // 管理模式拖曳時不觸發
+            
             clickPos = getMousePos(e);
             let hit = -1;
-            for (let i = buildings.length-1; i>=0; i--) { if(isPointInShape(clickPos.x, clickPos.y, buildings[i])) { hit = i; break; } }
-            document.getElementById('location-name').innerText = `📍 ${hit !== -1 ? buildings[hit].name : "校園開放區域"}`;
+            
+            // 遍歷所有建築形狀看有沒有點中
+            for (let i = buildings.length-1; i>=0; i--) { 
+                if(isPointInShape(clickPos.x, clickPos.y, buildings[i])) { 
+                    hit = i; 
+                    break; 
+                } 
+            }
+            
+            // 沒點中建築物則顯示「校園開放區域」
+            const locationName = (hit !== -1) ? buildings[hit].name : "校園開放區域";
+            
+            document.getElementById('location-name').innerText = `📍 ${locationName}`;
             document.getElementById('report-modal').classList.remove('hidden');
         }
 
@@ -257,14 +274,37 @@
 
         window.startRotate = (e) => { e.stopPropagation(); isRotating = true; };
         window.startResize = (e) => { e.stopPropagation(); isResizing = true; };
+        
         window.setTool = async (type) => { 
             const n = prompt("區域名稱："); 
-            if(n) { buildings.push({ x:45, y:45, w:10, h:10, angle:0, name:n, type }); selectedId = buildings.length-1; await setDoc(CAMPUS_DOC, { buildings }); } 
+            if(n) { 
+                buildings.push({ x:45, y:45, w:10, h:10, angle:0, name:n, type }); 
+                selectedId = buildings.length-1; 
+                await setDoc(CAMPUS_DOC, { buildings }); 
+            } 
         };
-        window.deleteSelected = async () => { if(selectedId !== null && confirm("刪除區域？")) { buildings.splice(selectedId, 1); selectedId = null; await setDoc(CAMPUS_DOC, { buildings }); } };
-        window.toggleAdmin = (s) => { isAdmin = s; document.getElementById('admin-tools').classList.toggle('hidden', !s); document.getElementById('map-root').classList.toggle('admin-view', s); selectedId = null; renderShapes(); };
+
+        window.deleteSelected = async () => { 
+            if(selectedId !== null && confirm("刪除區域？")) { 
+                buildings.splice(selectedId, 1); 
+                selectedId = null; 
+                await setDoc(CAMPUS_DOC, { buildings }); 
+            } 
+        };
+
+        window.toggleAdmin = (s) => { 
+            isAdmin = s; 
+            document.getElementById('admin-tools').classList.toggle('hidden', !s); 
+            document.getElementById('map-root').classList.toggle('admin-view', s); 
+            selectedId = null; 
+            renderShapes(); 
+        };
+
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
-        document.getElementById('admin-trigger').onclick = () => { adminClicks++; if(adminClicks >= 5) toggleAdmin(true); };
+        document.getElementById('admin-trigger').onclick = () => { 
+            adminClicks++; 
+            if(adminClicks >= 5) toggleAdmin(true); 
+        };
 
         document.getElementById('btn-submit').onclick = async () => {
             const item = document.getElementById('in-item').value, nick = document.getElementById('in-nick').value.trim() || "匿名英雄";
@@ -274,11 +314,21 @@
             const loc = document.getElementById('location-name').innerText.replace('📍 ','');
             await setDoc(doc(LOST_COLL), { name:item, finder:nick, location:loc, x:clickPos.x, y:clickPos.y, time:Date.now() });
             await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
-            closeModals(); document.getElementById('in-item').value = "";
+            closeModals(); 
+            document.getElementById('in-item').value = "";
         };
 
-        window.claimItem = async (id, f) => { if(confirm("確認領取？")) { await deleteDoc(doc(db, "lost_items_v2", id)); await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true }); } };
-        function getMousePos(e) { const r = document.getElementById('map-root').getBoundingClientRect(); return { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 }; }
+        window.claimItem = async (id, f) => { 
+            if(confirm("確認領取？")) { 
+                await deleteDoc(doc(db, "lost_items_v2", id)); 
+                await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true }); 
+            } 
+        };
+
+        function getMousePos(e) { 
+            const r = document.getElementById('map-root').getBoundingClientRect(); 
+            return { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 }; 
+        }
     </script>
 </body>
 </html>
