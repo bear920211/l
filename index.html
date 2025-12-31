@@ -140,7 +140,7 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 核心幾何 (修正三角形判定) ---
+        // --- 核心幾何 (修正三角形判定：加入反向旋轉與誤差容錯) ---
         function isPointInShape(px, py, box) {
             const angleRad = (box.angle || 0) * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
@@ -155,7 +155,8 @@
                 const getArea = (xa, ya, xb, yb, xc, yc) => Math.abs((xa*(yb-yc) + xb*(yc-ya) + xc*(ya-yb))/2.0);
                 const area = getArea(x1,y1,x2,y2,x3,y3);
                 const a1 = getArea(rx,ry,x1,y1,x2,y2), a2 = getArea(rx,ry,x2,y2,x3,y3), a3 = getArea(rx,ry,x3,y3,x1,y1);
-                return Math.abs(area - (a1 + a2 + a3)) < 0.5;
+                // 將容錯率提高至 1.0 以解決環境樓旋轉座標誤差
+                return Math.abs(area - (a1 + a2 + a3)) < 1.0;
             }
             if (box.type === 'capsule') {
                 const r = Math.min(box.w, box.h) / 2;
@@ -178,7 +179,6 @@
             let hit = buildings.find(b => isPointInShape(clickPos.x, clickPos.y, b));
             document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
             document.getElementById('report-modal').classList.remove('hidden');
-            // 初始化按鈕文字
             const btn = document.getElementById('btn-submit');
             btn.innerText = currentTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
             btn.className = `w-full py-4 text-white font-black rounded-2xl shadow-lg transition ${currentTab==='found'?'bg-indigo-600':'bg-red-500'}`;
