@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTCU 你丟我撿 - 精確定位版</title>
+    <title>NTCU 你丟我撿 - 終極穩定版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -31,7 +31,7 @@
         <header class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-black text-slate-800">💎 NTCU 你丟我撿</h1>
-                <p class="text-slate-500 text-sm">點擊地圖標註遺失物 (精確樓層定位版)</p>
+                <p class="text-slate-500 text-sm">點擊地圖標註遺失物 (免 Storage 穩定版)</p>
             </div>
             <div class="bg-white p-3 px-6 rounded-3xl shadow-sm border border-slate-100 text-right">
                 <span class="text-[9px] font-black text-slate-400 block">TOP HERO</span>
@@ -48,7 +48,7 @@
             </div>
             <div class="lg:col-span-4 flex flex-col gap-6">
                 <div class="bg-indigo-600 rounded-[2.5rem] p-6 text-white shadow-xl">
-                    <h3 class="font-bold mb-4">🏆 功德榜</h3>
+                    <h3 class="font-bold mb-4 flex justify-between items-center">🏆 功德榜</h3>
                     <div id="leaderboard" class="space-y-3 text-xs"></div>
                 </div>
                 <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
@@ -91,18 +91,16 @@
             <div class="p-8">
                 <h2 id="detail-name" class="text-2xl font-black text-slate-800">物品名稱</h2>
                 <p id="detail-loc" class="text-indigo-500 font-bold text-sm mb-4">📍 位置</p>
-                
                 <div class="space-y-4 mb-6 text-left">
                     <div class="bg-indigo-50 rounded-xl p-4">
                         <p class="text-[9px] text-indigo-400 font-black mb-1">具體位置</p>
-                        <p id="detail-floor" class="text-indigo-800 font-bold text-sm">尚未提供詳細樓層</p>
+                        <p id="detail-floor" class="text-indigo-800 font-bold text-sm"></p>
                     </div>
                     <div class="bg-slate-50 rounded-xl p-4">
-                        <p class="text-[9px] text-slate-400 font-black mb-1">物品描述 / 拾獲者：<span id="detail-finder"></span></p>
-                        <p id="detail-desc" class="text-slate-600 text-sm">描述內容...</p>
+                        <p class="text-[9px] text-slate-400 font-black mb-1">描述 / 拾獲者：<span id="detail-finder"></span></p>
+                        <p id="detail-desc" class="text-slate-600 text-sm"></p>
                     </div>
                 </div>
-
                 <div class="flex gap-2">
                     <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg">確認認領</button>
                     <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
@@ -149,13 +147,22 @@
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
             let hit = buildings.find(b => isPointInShape(clickPos.x, clickPos.y, b));
             document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
+            
+            document.getElementById('in-nick').value = ""; 
+            document.getElementById('in-item').value = "";
+            document.getElementById('in-floor').value = "";
+            document.getElementById('in-desc').value = ""; 
+            document.getElementById('in-file').value = "";
+            document.getElementById('img-preview').src = "";
+            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('upload-placeholder').classList.remove('hidden');
             document.getElementById('report-modal').classList.remove('hidden');
         };
 
         document.getElementById('in-nick').onblur = async function() {
             const n = this.value.trim(); if(!n) return;
             const snap = await getDoc(doc(USER_COLL, n));
-            if(snap.exists()) alert(`🔍 傳奇英雄「${n}」已有 ${snap.data().merit || 0} 功德！`);
+            if(snap.exists()) alert(`🔍 偵測到傳奇人物！\n「${n}」目前已累積 ${snap.data().merit || 0} 功德。\n歡迎回來！`);
         };
 
         window.previewImage = (input) => {
@@ -201,7 +208,7 @@
             document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
             document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供具體樓層";
             document.getElementById('detail-finder').innerText = item.finder;
-            document.getElementById('detail-desc').innerText = item.description || "英雄很低調，沒留下描述。";
+            document.getElementById('detail-desc').innerText = item.description || "無描述。";
             
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
             if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
@@ -212,12 +219,42 @@
         };
 
         window.claimItem = async (id, f) => {
-            if(confirm(`確認領取？將給予「${f}」20 功德！`)) {
+            if(confirm(`確認認領？將給予「${f}」20 功德！`)) {
                 await deleteDoc(doc(db, "lost_items_v2", id));
                 await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true });
                 closeDetail();
             }
         };
+
+        // --- 核心修正：縱向膠囊判定邏輯 ---
+        function isPointInShape(px, py, box) {
+            const rad = -box.angle * Math.PI / 180;
+            const cx = box.x + box.w / 2;
+            const cy = box.y + box.h / 2;
+            const rx = (px - cx) * Math.cos(rad) - (py - cy) * Math.sin(rad);
+            const ry = (px - cx) * Math.sin(rad) + (py - cy) * Math.cos(rad);
+
+            if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
+            if (box.type === 'ellipse') return (Math.pow(rx, 2)/Math.pow(box.w/2, 2)) + (Math.pow(ry, 2)/Math.pow(box.h/2, 2)) <= 1;
+            
+            if (box.type === 'capsule') {
+                const r = Math.min(box.w, box.h) / 2;
+                if (box.w >= box.h) {
+                    if (Math.abs(ry) > r) return false;
+                    const lineLen = box.w - 2 * r;
+                    if (Math.abs(rx) <= lineLen / 2) return true;
+                    const dx = Math.abs(rx) - lineLen / 2;
+                    return (dx * dx + ry * ry) <= r * r;
+                } else {
+                    if (Math.abs(rx) > r) return false;
+                    const lineLen = box.h - 2 * r;
+                    if (Math.abs(ry) <= lineLen / 2) return true;
+                    const dy = Math.abs(ry) - lineLen / 2;
+                    return (rx * rx + dy * dy) <= r * r;
+                }
+            }
+            return false;
+        }
 
         function renderShapes() {
             const layer = document.getElementById('shapes-layer'); layer.innerHTML = '';
@@ -242,15 +279,8 @@
                     <div class="w-10 h-10 bg-slate-50 rounded-lg flex-shrink-0 flex items-center justify-center text-[8px] text-slate-300 overflow-hidden">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '無照片'}
                     </div>
-                    <div class="flex-1"><div class="font-bold text-sm text-slate-700">${i.name}</div><div class="text-[9px] text-indigo-400">📍 ${i.location}</div></div>
+                    <div class="flex-1"><div class="font-bold text-sm text-slate-700">${i.name}</div><div class="text-[9px] text-indigo-400 font-bold">📍 ${i.location}</div></div>
                 </div>`).join('') || '<div class="text-center text-slate-300 text-xs py-10">尚無遺失物</div>';
-        }
-        function isPointInShape(px, py, box) {
-            const rad = -box.angle * Math.PI / 180, cx = box.x + box.w/2, cy = box.y + box.h/2;
-            const rx = (px-cx)*Math.cos(rad) - (py-cy)*Math.sin(rad), ry = (px-cx)*Math.sin(rad) + (py-cy)*Math.cos(rad);
-            if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
-            if (box.type === 'ellipse') return (Math.pow(rx, 2) / Math.pow(box.w/2, 2)) + (Math.pow(ry, 2) / Math.pow(box.h/2, 2)) <= 1;
-            return false;
         }
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
