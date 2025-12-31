@@ -19,6 +19,12 @@
         #pins-layer { z-index: 90; }
         .building-shape { position: absolute; transform-origin: center; pointer-events: auto; background: transparent; }
         
+        /* 三角形 CSS 繪製支援 (預覽用) */
+        .s-triangle { 
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            background: transparent;
+        }
+
         .floating-pin { 
             position: absolute; transform: translate(-50%, -50%); 
             cursor: pointer; pointer-events: auto; z-index: 100;
@@ -44,8 +50,8 @@
                 <h1 class="text-3xl font-black text-slate-800">💎 NTCU 一丟一撿</h1>
                 <p class="text-slate-500 text-sm">點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
             </div>
-            <div id="hero-display" class="bg-white p-3 px-6 rounded-3xl shadow-sm border border-slate-100 text-right">
-                <span class="text-[9px] font-black text-slate-400 block">TOP HERO</span>
+            <div class="bg-white p-3 px-6 rounded-3xl shadow-sm border border-slate-100">
+                <span class="text-[9px] font-black text-slate-400 block text-right">TOP HERO</span>
                 <span id="top-hero-name" class="text-xl font-black text-indigo-600">載入中...</span>
             </div>
         </header>
@@ -106,7 +112,7 @@
                 <h2 id="detail-name" class="text-2xl font-black text-slate-800">物品名稱</h2>
                 <p id="detail-loc" class="text-slate-400 font-bold text-sm mb-4">📍 位置</p>
                 <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500 mb-4">
-                    <p class="text-[9px] text-slate-400 font-black">具體/樓層</p>
+                    <p class="text-[9px] text-slate-400 font-black">具體/描述</p>
                     <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
                 </div>
                 <div class="flex gap-2">
@@ -138,28 +144,40 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // 加強版判定邏輯：針對環境樓等旋轉建築
+        // 三角形判定函數 (面積法)
+        function isPointInTriangle(px, py, x1, y1, x2, y2, x3, y3) {
+            const area = Math.abs((x1*(y2-y3) + x2*(y3-y1) + x3*(y1-y2))/2);
+            const a1 = Math.abs((px*(y1-y2) + x1*(y2-py) + x2*(py-y1))/2);
+            const a2 = Math.abs((px*(y2-y3) + x2*(y3-py) + x3*(py-y2))/2);
+            const a3 = Math.abs((px*(y3-y1) + x3*(y1-py) + x1*(py-y3))/2);
+            return Math.abs(area - (a1 + a2 + a3)) < 0.01;
+        }
+
         function isPointInShape(px, py, box) {
             const angleRad = (box.angle || 0) * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
-            
-            // 將點繞著形狀中心反向旋轉，轉換回標準直角座標系
             const cos = Math.cos(-angleRad), sin = Math.sin(-angleRad);
             const rx = cos * (px - cx) - sin * (py - cy);
             const ry = sin * (px - cx) + cos * (py - cy);
 
             if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
-            if (box.type === 'ellipse') return (rx*rx)/( (box.w/2)**2 ) + (ry*ry)/( (box.h/2)**2 ) <= 1;
+            if (box.type === 'ellipse') return (rx*rx)/((box.w/2)**2) + (ry*ry)/((box.h/2)**2) <= 1;
+            
+            // 三角形判定：假設點是在區域內的比例座標
+            if (box.type === 'triangle') {
+                // 定義三角形的三個頂點 (以中心旋轉後的相對位置)
+                const x1 = 0, y1 = -box.h/2; // 頂
+                const x2 = -box.w/2, y2 = box.h/2; // 左下
+                const x3 = box.w/2, y3 = box.h/2; // 右下
+                return isPointInTriangle(rx, ry, x1, y1, x2, y2, x3, y3);
+            }
+
             if (box.type === 'capsule') {
                 const r = Math.min(box.w, box.h) / 2;
                 if (box.w >= box.h) {
                     const l = box.w - 2 * r;
                     if (Math.abs(ry) <= r && Math.abs(rx) <= l/2) return true;
-                    return ( (Math.abs(rx) - l/2)**2 + ry*ry ) <= r*r;
-                } else {
-                    const l = box.h - 2 * r;
-                    if (Math.abs(rx) <= r && Math.abs(ry) <= l/2) return true;
-                    return ( rx*rx + (Math.abs(ry) - l/2)**2 ) <= r*r;
+                    return ((Math.abs(rx) - l/2)**2 + ry*ry) <= r*r;
                 }
             }
             return false;
@@ -173,20 +191,7 @@
             document.getElementById('report-modal').classList.remove('hidden');
         };
 
-        // 圓點渲染
-        function renderPins() {
-            const layer = document.getElementById('pins-layer'); layer.innerHTML = '';
-            reports.forEach(i => {
-                const p = document.createElement('div'); p.className = 'floating-pin';
-                p.style.left = `${i.x}%`; p.style.top = `${i.y}%`;
-                const dotColor = i.type === 'found' ? 'bg-indigo-600' : 'bg-red-500';
-                p.innerHTML = `<div class="pin-dot ${dotColor}"></div>`;
-                p.onclick = (e) => { e.stopPropagation(); openDetail(i.id); };
-                layer.appendChild(p);
-            });
-        }
-
-        // Firebase 監聽與提交
+        // Firebase 監聽與渲染
         onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
         onSnapshot(LOST_COLL, (s) => { 
             reports = s.docs.map(d => ({ id: d.id, ...d.data() })); 
@@ -250,18 +255,29 @@
                 layer.appendChild(el);
             });
         }
+
+        function renderPins() {
+            const layer = document.getElementById('pins-layer'); layer.innerHTML = '';
+            reports.forEach(i => {
+                const p = document.createElement('div'); p.className = 'floating-pin';
+                p.style.left = `${i.x}%`; p.style.top = `${i.y}%`;
+                const dotColor = i.type === 'found' ? 'bg-indigo-600' : 'bg-red-500';
+                p.innerHTML = `<div class="pin-dot ${dotColor}"></div>`;
+                p.onclick = (e) => { e.stopPropagation(); openDetail(i.id); };
+                layer.appendChild(p);
+            });
+        }
+
         function renderList() {
             document.getElementById('items-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => `
                 <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 cursor-pointer">
                     <div class="w-10 h-10 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '🎁'}
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="font-bold text-sm truncate">${i.name}</div>
-                        <div class="text-[9px] text-slate-400">📍 ${i.location}</div>
-                    </div>
+                    <div class="flex-1 truncate"><div class="font-bold text-sm">${i.name}</div><div class="text-[9px] text-slate-400">📍 ${i.location}</div></div>
                 </div>`).join('');
         }
+
         window.previewImage = (input) => {
             const f = input.files[0]; if(!f) return;
             const r = new FileReader(); r.onload = e => { 
