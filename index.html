@@ -71,37 +71,33 @@
                 <button onclick="switchTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-sm transition-all tab-active">我撿到了東西</button>
                 <button onclick="switchTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-sm transition-all tab-inactive">我丟了東西</button>
             </div>
-
             <div class="mb-5">
                 <div id="location-name" class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-base font-black rounded-2xl border border-indigo-100">📍 定位中...</div>
             </div>
-            
             <div class="space-y-3 mb-6">
-                <input type="text" id="in-nick" placeholder="您的暱稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
-                <input type="text" id="in-item" placeholder="物品名稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
-                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、排球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
-                <input type="text" id="in-desc" placeholder="詳細描述 (特徵、顏色)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
-                
+                <input type="text" id="in-nick" placeholder="您的暱稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-item" placeholder="物品名稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、排球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-desc" placeholder="詳細描述 (特徵、顏色)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-24 object-cover"></div>
                     <div id="upload-placeholder" class="text-slate-400 text-[10px] py-1">📷 拍下照片 (選填)</div>
                 </div>
             </div>
-
             <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg transition-all active:scale-95">確認標註 (+50 功德)</button>
             <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs">取消</button>
         </div>
     </div>
 
     <div id="detail-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[400] p-4 backdrop-blur-md">
-        <div class="bg-white rounded-[2.5rem] max-w-sm w-full overflow-hidden shadow-2xl">
-            <div id="detail-header-color" class="w-full h-48 bg-slate-100 flex items-center justify-center overflow-hidden relative">
-                <img id="detail-img" src="" class="w-full h-full object-cover">
-                <div id="no-img-placeholder" class="hidden text-slate-300 font-bold text-sm">📷 無照片預覽</div>
-                <div id="type-tag" class="absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white"></div>
+        <div class="bg-white rounded-[2.5rem] max-w-sm w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div id="detail-header-color" class="w-full bg-slate-100 flex items-center justify-center relative min-h-[150px] overflow-hidden">
+                <img id="detail-img" src="" class="w-full h-auto max-h-[60vh] object-contain block">
+                <div id="no-img-placeholder" class="hidden text-slate-300 font-bold text-sm py-20">📷 無照片預覽</div>
+                <div id="type-tag" class="absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 shadow-md"></div>
             </div>
-            <div class="p-8">
+            <div class="p-6 md:p-8 overflow-y-auto">
                 <h2 id="detail-name" class="text-2xl font-black text-slate-800">物品名稱</h2>
                 <p id="detail-loc" class="text-slate-400 font-bold text-sm mb-4">📍 位置</p>
                 <div class="space-y-3 mb-6">
@@ -171,12 +167,6 @@
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
-        document.getElementById('in-nick').onblur = async function() {
-            const n = this.value.trim(); if(!n) return;
-            const snap = await getDoc(doc(USER_COLL, n));
-            if(snap.exists()) alert(`🔍 偵測到傳奇人物！\n「${n}」目前已累積 ${snap.data().merit || 0} 功德。\n歡迎回來！`);
-        };
-
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
@@ -205,19 +195,15 @@
                     x: clickPos.x, y: clickPos.y, time: Date.now() 
                 });
                 if(currentTab === 'found') await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
-
-                document.getElementById('in-nick').value = "";
-                document.getElementById('in-item').value = "";
-                document.getElementById('in-floor').value = "";
-                document.getElementById('in-desc').value = "";
-                document.getElementById('in-file').value = "";
+                
+                // 重置表單
+                ['in-nick','in-item','in-floor','in-desc','in-file'].forEach(id => document.getElementById(id).value = "");
                 document.getElementById('img-preview').src = "";
                 document.getElementById('preview-container').classList.add('hidden');
                 document.getElementById('upload-placeholder').classList.remove('hidden');
 
                 closeModals();
                 alert("標註成功！");
-                setTimeout(() => document.getElementById('items-list').scrollTop = 0, 300);
             } catch (err) { alert("儲存失敗！"); }
             btn.innerText = currentTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
             btn.disabled = false;
@@ -284,14 +270,13 @@
             const tag = document.getElementById('type-tag');
             const claimBtn = document.getElementById('btn-claim-now');
 
-            // 核心邏輯：根據類型修改按鈕文字與標籤顏色
             if(item.type === 'found') {
                 tag.innerText = '拾獲物';
-                tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white bg-indigo-600`;
+                tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white bg-indigo-600 z-10`;
                 claimBtn.innerText = '確定認領';
             } else {
                 tag.innerText = '協尋中';
-                tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white bg-red-500`;
+                tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white bg-red-500 z-10`;
                 claimBtn.innerText = '找到了';
             }
 
@@ -310,7 +295,6 @@
         };
 
         window.claimItem = async (id, f, type) => {
-            // 確認視窗文字同步優化
             const confirmMsg = type === 'found' ? `確認認領？將給予拾獲者 20 功德。` : `東西真的找回了嗎？確認後標記將從地圖消失。`;
             if(confirm(confirmMsg)) {
                 await deleteDoc(doc(db, "all_reports_v3", id));
@@ -321,7 +305,11 @@
 
         window.previewImage = (input) => {
             const f = input.files[0]; if(!f) return;
-            const r = new FileReader(); r.onload = e => { document.getElementById('img-preview').src = e.target.result; document.getElementById('preview-container').classList.remove('hidden'); document.getElementById('upload-placeholder').classList.add('hidden'); };
+            const r = new FileReader(); r.onload = e => { 
+                document.getElementById('img-preview').src = e.target.result; 
+                document.getElementById('preview-container').classList.remove('hidden'); 
+                document.getElementById('upload-placeholder').classList.add('hidden'); 
+            };
             r.readAsDataURL(f);
         };
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
