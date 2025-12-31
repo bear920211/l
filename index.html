@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NTCU 互助會 - 雙向奔赴</title>
+    <title>NTCU 互助會 - 位置校準版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -12,18 +12,24 @@
             font-family: 'Noto Sans TC', sans-serif; 
             background: #f8fafc; 
             overflow-x: hidden;
-            margin: 0;
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* 響應式地圖容器 */
+        /* 關鍵修正：確保容器與圖片比例鎖定 */
+        .map-wrapper {
+            width: 100%;
+            max-width: 1000px; /* 您可以根據底圖原尺寸調整 */
+            margin: 0 auto;
+        }
+
         .map-container {
             position: relative; 
             width: 100%; 
-            height: 600px; /* 電腦版預設高度 */
+            /* 修正：使用 aspect-ratio 確保背景圖與形狀層永遠同步 */
+            aspect-ratio: 16 / 10; /* 請根據您的 1.png 實際長寬比調整，例如 4/3 或 16/9 */
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
-            border-radius: 2.5rem; 
-            border: 8px solid white; 
+            border-radius: 2rem; 
+            border: 6px solid white; 
             box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
             overflow: hidden; 
             cursor: crosshair;
@@ -32,14 +38,17 @@
 
         @media (max-width: 768px) {
             .map-container { 
-                height: 70vh; /* 手機版提高比例，方便手指點擊 */
-                border-radius: 1.5rem; 
+                border-radius: 1.2rem; 
                 border-width: 4px; 
             }
         }
 
-        /* 圖層與建築形狀 */
-        #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
+        /* 圖層固定 */
+        #shapes-layer, #pins-layer { 
+            position: absolute; 
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; 
+        }
         #shapes-layer { z-index: 80; }
         #pins-layer { z-index: 90; }
 
@@ -47,13 +56,15 @@
             position: absolute; 
             transform-origin: center; 
             pointer-events: auto; 
-            background: transparent; 
+            background: rgba(255, 255, 255, 0); /* 保持透明但可點擊 */
+            transition: background 0.2s;
         }
+        .building-shape:hover { background: rgba(79, 70, 229, 0.1); }
+
         .s-rect { border-radius: 2px; }
         .s-capsule { border-radius: 999px !important; }
         .s-ellipse { border-radius: 50% !important; }
 
-        /* 浮動大頭針 */
         .floating-pin { 
             animation: float 2s ease-in-out infinite; 
             position: absolute; 
@@ -67,48 +78,43 @@
             50% { transform: translate(-50%, -100%) translateY(-10px); } 
         }
 
-        /* 選項卡與狀態顏色 */
         .tab-active { background-color: #4f46e5; color: white; }
         .tab-inactive { color: #64748b; }
         .tab-lost-active { background-color: #ef4444; color: white; }
-
-        /* 自定義捲軸 */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="p-3 md:p-10">
+<body class="p-4 md:p-10">
 
     <div class="max-w-7xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
             <div>
-                <h1 class="text-2xl md:text-3xl font-black text-slate-800 leading-tight">💎 NTCU 一丟一撿<br class="md:hidden">雙向奔赴互助會</h1>
+                <h1 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">💎 NTCU 雙向奔赴互助會</h1>
                 <p class="text-slate-500 text-xs mt-2">點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
             </div>
-            <div class="bg-white p-3 px-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 w-full md:w-auto justify-between">
-                <div>
-                    <span class="text-[9px] font-black text-slate-400 block tracking-widest">TOP HERO</span>
-                    <span id="top-hero-name" class="text-lg font-black text-indigo-600">載入中...</span>
-                </div>
+            <div class="bg-white p-3 px-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                <span id="top-hero-name" class="text-lg font-black text-indigo-600">載入中...</span>
                 <div class="w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center">👑</div>
             </div>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div class="lg:col-span-8 order-1">
-                <div id="map-root" class="map-container" onclick="handleMapClick(event)">
-                    <div id="shapes-layer"></div>
-                    <div id="pins-layer"></div>
+            <div class="lg:col-span-8">
+                <div class="map-wrapper">
+                    <div id="map-root" class="map-container" onclick="handleMapClick(event)">
+                        <div id="shapes-layer"></div>
+                        <div id="pins-layer"></div>
+                    </div>
                 </div>
             </div>
             
-            <div class="lg:col-span-4 flex flex-col gap-6 order-2">
+            <div class="lg:col-span-4 flex flex-col gap-6">
                 <div class="bg-indigo-600 rounded-[2.5rem] p-6 text-white shadow-xl relative overflow-hidden">
                     <h3 class="font-bold mb-4 flex items-center gap-2">🏆 功德榜</h3>
                     <div id="leaderboard" class="space-y-3 text-xs relative z-10"></div>
                 </div>
                 
-                <div class="bg-white rounded-[2.5rem] shadow-sm border h-[350px] md:h-[400px] flex flex-col overflow-hidden">
+                <div class="bg-white rounded-[2.5rem] shadow-sm border h-[350px] flex flex-col overflow-hidden">
                     <div class="p-5 border-b bg-slate-50 font-black text-slate-600 text-sm flex justify-between items-center">
                         <span>最新動態</span>
                         <span id="items-count" class="bg-indigo-500 text-white px-3 py-0.5 rounded-full text-[10px]">0</span>
@@ -120,56 +126,51 @@
     </div>
 
     <div id="report-modal" class="fixed inset-0 bg-slate-900/40 hidden flex items-center justify-center z-[300] p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-6 shadow-2xl text-center">
+        <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-6 shadow-2xl">
             <div class="flex bg-slate-100 p-1 rounded-2xl mb-4">
                 <button onclick="switchTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-xs transition-all tab-active">撿到東西</button>
                 <button onclick="switchTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-xs transition-all tab-inactive">丟了東西</button>
             </div>
-
-            <div class="mb-4">
+            <div class="mb-4 text-center">
                 <div id="location-name" class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-base font-black rounded-xl border border-indigo-100">📍 定位中...</div>
             </div>
-            
             <div class="space-y-2 mb-6 text-sm">
                 <input type="text" id="in-nick" placeholder="您的暱稱 (必填)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
                 <input type="text" id="in-item" placeholder="物品名稱 (必填)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
-                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、排球場)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
-                <textarea id="in-desc" placeholder="詳細描述 (特徵、顏色)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold outline-none focus:ring-2 focus:ring-indigo-100 h-20"></textarea>
-                
-                <div class="p-3 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50" onclick="document.getElementById('in-file').click()">
+                <input type="text" id="in-floor" placeholder="具體位置 (例：A302)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
+                <textarea id="in-desc" placeholder="詳細描述 (顏色特徵)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold outline-none h-20"></textarea>
+                <div class="p-3 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer text-center" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
-                    <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-lg mx-auto max-h-24 object-cover"></div>
-                    <div id="upload-placeholder" class="text-slate-400 text-[10px]">📷 拍下照片 (選填)</div>
+                    <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-lg mx-auto max-h-24"></div>
+                    <div id="upload-placeholder" class="text-slate-400 text-[10px]">📷 上傳圖片 (選填)</div>
                 </div>
             </div>
-
-            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg transition-all active:scale-95">確認標註</button>
-            <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs block w-full">取消</button>
+            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg">確認標註</button>
+            <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs block w-full text-center">取消</button>
         </div>
     </div>
 
     <div id="detail-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[400] p-4 backdrop-blur-md">
         <div class="bg-white rounded-[2.5rem] max-w-sm w-full overflow-hidden shadow-2xl">
-            <div id="detail-header-color" class="w-full h-48 bg-slate-100 flex items-center justify-center overflow-hidden relative">
+            <div id="detail-header-color" class="w-full h-48 bg-slate-100 flex items-center justify-center relative">
                 <img id="detail-img" src="" class="w-full h-full object-cover">
-                <div id="no-img-placeholder" class="hidden text-slate-300 font-bold text-sm">📷 無照片預覽</div>
+                <div id="no-img-placeholder" class="hidden text-slate-300 font-bold text-sm">📷 無照片</div>
                 <div id="type-tag" class="absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white"></div>
             </div>
             <div class="p-8">
-                <h2 id="detail-name" class="text-2xl font-black text-slate-800">物品名稱</h2>
+                <h2 id="detail-name" class="text-2xl font-black text-slate-800 mb-1">物品名稱</h2>
                 <p id="detail-loc" class="text-slate-400 font-bold text-sm mb-4">📍 位置</p>
                 <div class="space-y-3 mb-6">
                     <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500">
-                        <p class="text-[9px] text-slate-400 font-black">具體位置</p>
                         <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
                     </div>
                     <div class="bg-slate-50 rounded-xl p-3">
-                        <p class="text-[9px] text-slate-400 font-black">描述 / 發布者：<span id="detail-finder"></span></p>
+                        <p class="text-[9px] text-slate-400 font-black">發布者：<span id="detail-finder"></span></p>
                         <p id="detail-desc" class="text-slate-600 text-sm"></p>
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg transition-all active:scale-95">確定</button>
+                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg">確定</button>
                     <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
                 </div>
             </div>
@@ -180,7 +181,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase 設定
         const firebaseConfig = {
             apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
             authDomain: "lostandnotfound-6d007.firebaseapp.com",
@@ -199,24 +199,22 @@
         let currentTab = 'found'; 
         let buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // 切換拾獲/遺失模式
         window.switchTab = (type) => {
             currentTab = type;
             const btnF = document.getElementById('tab-found'), btnL = document.getElementById('tab-lost'), btnSubmit = document.getElementById('btn-submit');
             if(type === 'found') {
                 btnF.className = "flex-1 py-2 rounded-xl font-black text-xs transition-all tab-active";
                 btnL.className = "flex-1 py-2 rounded-xl font-black text-xs transition-all tab-inactive";
-                btnSubmit.className = "w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg transition-all active:scale-95";
+                btnSubmit.className = "w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg";
                 btnSubmit.innerText = "確認標註 (+50 功德)";
             } else {
                 btnL.className = "flex-1 py-2 rounded-xl font-black text-xs transition-all tab-lost-active";
                 btnF.className = "flex-1 py-2 rounded-xl font-black text-xs transition-all tab-inactive";
-                btnSubmit.className = "w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg transition-all active:scale-95";
+                btnSubmit.className = "w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg";
                 btnSubmit.innerText = "發布求助標記";
             }
         };
 
-        // 監聽數據
         onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
         onSnapshot(LOST_COLL, (s) => { 
             reports = s.docs.map(d => ({ id: d.id, ...d.data() })); 
@@ -228,51 +226,43 @@
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
-        // 處理地圖點擊
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
-            clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
+            // 精準計算百分比座標
+            clickPos = { 
+                x: ((e.clientX - r.left) / r.width) * 100, 
+                y: ((e.clientY - r.top) / r.height) * 100 
+            };
             let hit = buildings.find(b => isPointInShape(clickPos.x, clickPos.y, b));
             document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
             document.getElementById('report-modal').classList.remove('hidden');
         };
 
-        // 提交報告
         document.getElementById('btn-submit').onclick = async () => {
             const nick = document.getElementById('in-nick').value.trim();
             const item = document.getElementById('in-item').value.trim();
-            const floor = document.getElementById('in-floor').value.trim();
-            const desc = document.getElementById('in-desc').value.trim();
-            const imgData = document.getElementById('img-preview').src;
-
-            if(!nick || !item) return alert("暱稱與物品名稱必填！");
-
+            if(!nick || !item) return alert("必填項未填！");
+            
             const btn = document.getElementById('btn-submit');
-            btn.innerText = "傳送中..."; btn.disabled = true;
+            btn.innerText = "儲存中..."; btn.disabled = true;
 
             try {
                 await setDoc(doc(LOST_COLL), { 
-                    type: currentTab, name: item, finder: nick, floor_info: floor, description: desc,
+                    type: currentTab, name: item, finder: nick, 
+                    floor_info: document.getElementById('in-floor').value,
+                    description: document.getElementById('in-desc').value,
                     location: document.getElementById('location-name').innerText.replace('📍 ',''),
-                    imageUrl: imgData.startsWith('data:image') ? imgData : "",
+                    imageUrl: document.getElementById('img-preview').src.startsWith('data') ? document.getElementById('img-preview').src : "",
                     x: clickPos.x, y: clickPos.y, time: Date.now() 
                 });
                 if(currentTab === 'found') await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
-
-                // 清空表單
-                ['in-nick', 'in-item', 'in-floor', 'in-desc'].forEach(id => document.getElementById(id).value = "");
-                document.getElementById('img-preview').src = "";
-                document.getElementById('preview-container').classList.add('hidden');
-                document.getElementById('upload-placeholder').classList.remove('hidden');
-
                 closeModals();
                 alert("標註成功！");
-            } catch (err) { alert("儲存失敗！"); }
+            } catch (err) { alert("錯誤！"); }
             btn.disabled = false;
             switchTab(currentTab);
         };
 
-        // 形狀碰撞檢測
         function isPointInShape(px, py, box) {
             const rad = -box.angle * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
@@ -306,35 +296,29 @@
 
         function renderList() {
             document.getElementById('items-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => `
-                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type === 'found' ? 'border-indigo-500' : 'border-red-500'} flex items-center gap-3 cursor-pointer hover:bg-slate-50 shadow-sm transition-all">
-                    <div class="w-10 h-10 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center text-lg overflow-hidden">
-                        ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : (i.type === 'found' ? '🎁' : '❓')}
+                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-xl border-l-4 ${i.type === 'found' ? 'border-indigo-500' : 'border-red-500'} flex items-center gap-3 cursor-pointer shadow-sm">
+                    <div class="w-10 h-10 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden">
+                        ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '📦'}
                     </div>
-                    <div class="flex-1 overflow-hidden">
-                        <div class="font-bold text-sm text-slate-700 truncate">${i.name}</div>
-                        <div class="text-[10px] text-slate-400 truncate">📍 ${i.location}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-bold text-xs truncate">${i.name}</div>
+                        <div class="text-[9px] text-slate-400 truncate">📍 ${i.location}</div>
                     </div>
-                </div>`).join('') || '<div class="text-center text-slate-300 text-xs py-10">尚無資訊</div>';
+                </div>`).join('');
         }
 
         window.openDetail = (id) => {
             const item = reports.find(i => i.id === id); if(!item) return;
             const tag = document.getElementById('type-tag');
             const claimBtn = document.getElementById('btn-claim-now');
-
-            if(item.type === 'found') {
-                tag.innerText = '拾獲物';
-                tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white bg-indigo-600`;
-                claimBtn.innerText = '確定認領';
-            } else {
-                tag.innerText = '協尋中';
-                tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white bg-red-500`;
-                claimBtn.innerText = '找到了';
-            }
+            
+            tag.innerText = item.type === 'found' ? '拾獲物' : '協尋中';
+            tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white ${item.type === 'found' ? 'bg-indigo-600' : 'bg-red-500'}`;
+            claimBtn.innerText = item.type === 'found' ? '確定認領' : '找到了';
 
             document.getElementById('detail-name').innerText = item.name;
             document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
-            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供具體位置";
+            document.getElementById('detail-floor').innerText = item.floor_info || "無詳細位置";
             document.getElementById('detail-finder').innerText = item.finder;
             document.getElementById('detail-desc').innerText = item.description || "無描述。";
             
@@ -347,8 +331,7 @@
         };
 
         window.claimItem = async (id, f, type) => {
-            const confirmMsg = type === 'found' ? `確定認領？將給予拾獲者 20 功德。` : `東西找回了嗎？確認後標記將消失。`;
-            if(confirm(confirmMsg)) {
+            if(confirm('確認完成？')) {
                 await deleteDoc(doc(db, "all_reports_v3", id));
                 if(type === 'found') await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true });
                 closeDetail();
@@ -356,14 +339,9 @@
         };
 
         window.previewImage = (input) => {
-            const f = input.files[0]; if(!f) return;
             const r = new FileReader(); 
-            r.onload = e => { 
-                document.getElementById('img-preview').src = e.target.result; 
-                document.getElementById('preview-container').classList.remove('hidden'); 
-                document.getElementById('upload-placeholder').classList.add('hidden'); 
-            };
-            r.readAsDataURL(f);
+            r.onload = e => { document.getElementById('img-preview').src = e.target.result; document.getElementById('preview-container').classList.remove('hidden'); document.getElementById('upload-placeholder').classList.add('hidden'); };
+            r.readAsDataURL(input.files[0]);
         };
         
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
