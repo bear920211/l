@@ -140,7 +140,7 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 核心幾何 (修正三角形判定：加入反向旋轉與誤差容錯) ---
+        // --- 核心幾何 (修正三角形判定：專為 90 度旋轉優化) ---
         function isPointInShape(px, py, box) {
             const angleRad = (box.angle || 0) * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
@@ -151,12 +151,21 @@
             if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
             if (box.type === 'ellipse') return (rx*rx)/((box.w/2)**2) + (ry*ry)/((box.h/2)**2) <= 1;
             if (box.type === 'triangle') {
-                const x1 = 0, y1 = -box.h/2, x2 = -box.w/2, y2 = box.h/2, x3 = box.w/2, y3 = box.h/2;
-                const getArea = (xa, ya, xb, yb, xc, yc) => Math.abs((xa*(yb-yc) + xb*(yc-ya) + xc*(ya-yb))/2.0);
-                const area = getArea(x1,y1,x2,y2,x3,y3);
-                const a1 = getArea(rx,ry,x1,y1,x2,y2), a2 = getArea(rx,ry,x2,y2,x3,y3), a3 = getArea(rx,ry,x3,y3,x1,y1);
-                // 將容錯率提高至 1.0 以解決環境樓旋轉座標誤差
-                return Math.abs(area - (a1 + a2 + a3)) < 1.0;
+                // 定義頂點 (尖端朝上)
+                const x1 = 0,          y1 = -box.h / 2; 
+                const x2 = -box.w / 2, y2 = box.h / 2;  
+                const x3 = box.w / 2,  y3 = box.h / 2;  
+                
+                const getArea = (xa, ya, xb, yb, xc, yc) => 
+                    Math.abs((xa * (yb - yc) + xb * (yc - ya) + xc * (ya - yb)) / 2.0);
+                
+                const area = getArea(x1, y1, x2, y2, x3, y3);
+                const a1 = getArea(rx, ry, x1, y1, x2, y2);
+                const a2 = getArea(rx, ry, x2, y2, x3, y3);
+                const a3 = getArea(rx, ry, x3, y3, x1, y1);
+                
+                // 提高容錯率至 2.5 以處理環境樓 90.3 度旋轉後的像素偏移
+                return Math.abs(area - (a1 + a2 + a3)) < 2.5;
             }
             if (box.type === 'capsule') {
                 const r = Math.min(box.w, box.h) / 2;
