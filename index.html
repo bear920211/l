@@ -12,27 +12,13 @@
             position: relative; width: 100%; height: 600px;
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
             border-radius: 2.5rem; border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-            overflow: visible; cursor: crosshair;
+            overflow: hidden; cursor: crosshair;
         }
         #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
-        #shapes-layer { z-index: 80; }
-        #pins-layer { z-index: 90; }
-        
-        /* 環境樓：直角三角形 */
-        .building-shape { 
-            position: absolute; transform-origin: center; pointer-events: auto; 
-            clip-path: polygon(0% 0%, 0% 100%, 100% 100%); 
-            -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%);
-        }
-        
-        .edit-controls { 
-            position: absolute; top: -60px; left: 50%; transform: translateX(-50%); 
-            background: #1e293b; padding: 6px; border-radius: 12px; display: flex; 
-            gap: 4px; box-shadow: 0 10px 15px rgba(0,0,0,0.3); z-index: 999; white-space: nowrap; 
-        }
-        .edit-btn { padding: 4px 8px; background: #334155; color: white; border-radius: 6px; font-size: 11px; font-weight: bold; border: 1px solid #475569; }
-
-        .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; z-index: 100; }
+        #shapes-layer { z-index: 10; opacity: 0.2; }
+        #pins-layer { z-index: 20; }
+        .building-shape { position: absolute; background: rgba(239, 68, 68, 0.4); border: 2px solid #ef4444; }
+        .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
         .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.2); animation: pulse 2s infinite; }
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0.4); transform: scale(1); }
@@ -49,10 +35,10 @@
         <header class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-black text-slate-800">💎 NTCU 一丟一撿</h1>
-                <p id="mode-indicator" class="text-slate-500 text-sm">點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
+                <p class="text-slate-500 text-sm">點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
             </div>
             <div class="bg-white p-3 px-6 rounded-3xl shadow-sm border border-slate-100 text-right">
-                <span class="text-[9px] font-black text-slate-400 block text-right">TOP HERO</span>
+                <span class="text-[9px] font-black text-slate-400 block">TOP HERO</span>
                 <span id="top-hero-name" class="text-xl font-black text-indigo-600">載入中...</span>
             </div>
         </header>
@@ -63,11 +49,10 @@
                     <div id="shapes-layer"></div>
                     <div id="pins-layer"></div>
                 </div>
-                <p id="edit-tip" class="hidden mt-4 text-red-500 font-bold text-sm text-center">🛠 編輯模式：點擊環境樓紅框進行調整，完畢請存檔</p>
             </div>
             <div class="lg:col-span-4 flex flex-col gap-6">
                 <div class="bg-indigo-600 rounded-[2.5rem] p-6 text-white shadow-xl">
-                    <h3 class="font-bold mb-4 text-sm">🏆 功德榜</h3>
+                    <h3 class="font-bold mb-4 text-sm flex items-center gap-2">🏆 功德榜</h3>
                     <div id="leaderboard" class="space-y-3 text-xs"></div>
                 </div>
                 <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
@@ -124,7 +109,7 @@
                         <p id="detail-desc" class="font-bold text-sm text-slate-700"></p>
                     </div>
                 </div>
-                <div class="flex gap-2 text-sm">
+                <div class="flex gap-2">
                     <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl">是我的！</button>
                     <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
                 </div>
@@ -151,62 +136,38 @@
         const USER_COLL = collection(db, "users_v2");
         const CAMPUS_DOC = doc(db, "campus_data", "NTCU-CAMPUS-V2");
 
-        let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50}, editMode = false, selectedIdx = -1;
+        let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        function isPointInShape(px, py, b) {
-            const angleRad = (b.angle || 0) * Math.PI / 180;
-            const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-            const dx = px - cx, dy = py - cy;
-            const rx = dx * Math.cos(-angleRad) - dy * Math.sin(-angleRad);
-            const ry = dx * Math.sin(-angleRad) + dy * Math.cos(-angleRad);
-            const x1 = -b.w/2, y1 = -b.h/2, x2 = -b.w/2, y2 = b.h/2, x3 = b.w/2, y3 = b.h/2;
-            const getArea = (xa, ya, xb, yb, xc, yc) => Math.abs((xa*(yb-yc) + xb*(yc-ya) + xc*(ya-yb))/2.0);
-            const area = getArea(x1,y1,x2,y2,x3,y3);
-            const a1 = getArea(rx,ry,x1,y1,x2,y2), a2 = getArea(rx,ry,x2,y2,x3,y3), a3 = getArea(rx,ry,x3,y3,x1,y1);
-            return Math.abs(area - (a1 + a2 + a3)) < 2.0;
+        // 判定點擊區域
+        function isPointInRect(px, py, rect) {
+            return px >= rect.x && px <= rect.x + rect.w && py >= rect.y && py <= rect.y + rect.h;
         }
-
-        window.addEventListener('click', (e) => {
-            if (e.detail === 3) {
-                editMode = !editMode;
-                document.getElementById('edit-tip').classList.toggle('hidden');
-                document.getElementById('mode-indicator').innerText = editMode ? "🛠 編輯模式已開啟 (環境樓專用)" : "點擊地圖標註：藍色拾獲 / 紅色遺失";
-                selectedIdx = -1; renderShapes();
-            }
-        });
 
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
-            let hitIndex = buildings.findIndex(b => isPointInShape(clickPos.x, clickPos.y, b));
-
-            if (editMode) {
-                if (hitIndex !== -1) { selectedIdx = hitIndex; renderShapes(); }
-                else if(confirm("新增環境樓？")) {
-                    buildings.push({ name: "環境樓", type: 'triangle', x: clickPos.x-5, y: clickPos.y-5, w: 10, h: 10, angle: 0 });
-                    selectedIdx = buildings.length - 1; renderShapes();
-                }
-                return;
-            }
-            document.getElementById('location-name').innerText = `📍 ${hitIndex!==-1?buildings[hitIndex].name:"校園開放區域"}`;
+            const hit = buildings.find(b => isPointInRect(clickPos.x, clickPos.y, b));
+            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
             document.getElementById('report-modal').classList.remove('hidden');
         };
 
-        window.adjust = (prop, val) => {
-            if(selectedIdx === -1) return;
-            buildings[selectedIdx][prop] = Math.round((buildings[selectedIdx][prop] + val) * 10) / 10;
-            renderShapes();
-        };
-
-        window.saveB = async () => { await updateDoc(CAMPUS_DOC, { buildings }); alert("✅ 存檔成功！"); };
-        window.delB = (idx) => { if(confirm('刪除？')){ buildings.splice(idx,1); selectedIdx=-1; renderShapes(); } };
-
-        onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
-        onSnapshot(LOST_COLL, (s) => { 
-            reports = s.docs.map(d => ({ id: d.id, ...d.data() })); 
-            document.getElementById('items-count').innerText = reports.length;
-            renderPins(); renderList(); 
+        // 監聽建築資料
+        onSnapshot(CAMPUS_DOC, (snap) => {
+            if (snap.exists()) {
+                buildings = snap.data().buildings || [];
+                const layer = document.getElementById('shapes-layer');
+                layer.innerHTML = buildings.map(b => `<div class="building-shape" style="left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%;"></div>`).join('');
+            }
         });
+
+        // 監聽遺失物品
+        onSnapshot(LOST_COLL, (s) => {
+            reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
+            document.getElementById('items-count').innerText = reports.length;
+            renderPins(); renderList();
+        });
+
+        // 監聽功德榜
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
                 <div class="flex justify-between items-center p-2 bg-white/10 rounded-xl text-[11px]">
@@ -214,32 +175,6 @@
                 </div>`).join('');
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
-
-        function renderShapes() {
-            const layer = document.getElementById('shapes-layer'); layer.innerHTML = '';
-            buildings.forEach((b, i) => {
-                if(b.name !== "環境樓") return; 
-                const el = document.createElement('div');
-                el.className = `building-shape`;
-                const isSelected = (i === selectedIdx && editMode);
-                const debug = editMode ? `border: ${isSelected?'3px solid #6366f1':'1px solid red'}; background: ${isSelected?'rgba(99,102,241,0.3)':'rgba(255,0,0,0.1)'};` : 'background: transparent;';
-                el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle||0}deg); ${debug}`;
-                if (isSelected) {
-                    const ctrl = document.createElement('div');
-                    ctrl.className = "edit-controls";
-                    ctrl.innerHTML = `
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust('x',-0.2)">⬅️</button>
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust('x',0.2)">➡️</button>
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust('w',0.5)">寬</button>
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust('h',0.5)">高</button>
-                        <button class="edit-btn text-yellow-400" onclick="event.stopPropagation();adjust('angle',2)">🔄</button>
-                        <button class="edit-btn text-green-400" onclick="event.stopPropagation();saveB()">💾</button>
-                    `;
-                    el.appendChild(ctrl);
-                }
-                layer.appendChild(el);
-            });
-        }
 
         window.switchTab = (t) => {
             currentTab = t;
@@ -253,14 +188,14 @@
         document.getElementById('submit-btn').onclick = async () => {
             const nick = document.getElementById('in-nick').value.trim();
             const item = document.getElementById('in-item').value.trim();
-            if(!nick || !item) return alert("必填！");
-            await setDoc(doc(LOST_COLL), { 
-                type: currentTab, name: item, finder: nick, 
+            if(!nick || !item) return alert("請填寫必填欄位！");
+            await setDoc(doc(LOST_COLL), {
+                type: currentTab, name: item, finder: nick,
                 floor_info: document.getElementById('in-floor').value,
                 description: document.getElementById('in-desc').value,
                 location: document.getElementById('location-name').innerText.replace('📍 ',''),
                 imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
-                x: clickPos.x, y: clickPos.y, time: Date.now() 
+                x: clickPos.x, y: clickPos.y, time: Date.now()
             });
             if(currentTab === 'found') await updateDoc(doc(USER_COLL, nick), { merit: increment(50) }).catch(async () => {
                 await setDoc(doc(USER_COLL, nick), { merit: 50 });
@@ -281,7 +216,7 @@
             if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
             else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
             document.getElementById('btn-claim-now').onclick = async () => {
-                if(confirm('領回？')){ await deleteDoc(doc(db, "all_reports_v3", id)); closeDetail(); }
+                if(confirm('確認領回了嗎？')){ await deleteDoc(doc(db, "all_reports_v3", id)); closeDetail(); }
             };
             document.getElementById('detail-modal').classList.remove('hidden');
         };
@@ -303,21 +238,26 @@
                     <div class="w-10 h-10 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '🎁'}
                     </div>
-                    <div class="flex-1 truncate text-left text-slate-700 font-bold text-sm">${i.name}<div class="text-[9px] text-slate-400 italic">${i.location}</div></div>
+                    <div class="flex-1 truncate text-left font-bold text-sm text-slate-700">${i.name}<div class="text-[9px] text-slate-400 italic">${i.location}</div></div>
                 </div>`).join('');
         }
 
         window.previewImage = (input) => {
             const f = input.files[0]; if(!f) return;
-            const r = new FileReader(); r.onload = e => { 
-                document.getElementById('img-preview').src = e.target.result; 
-                document.getElementById('preview-container').classList.remove('hidden'); 
-                document.getElementById('upload-placeholder').classList.add('hidden'); 
+            const r = new FileReader(); r.onload = e => {
+                document.getElementById('img-preview').src = e.target.result;
+                document.getElementById('preview-container').classList.remove('hidden');
+                document.getElementById('upload-placeholder').classList.add('hidden');
             };
             r.readAsDataURL(f);
         };
 
-        window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
+        window.closeModals = () => {
+            document.getElementById('report-modal').classList.add('hidden');
+            document.getElementById('img-preview').src = "";
+            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('upload-placeholder').classList.remove('hidden');
+        };
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
 </body>
