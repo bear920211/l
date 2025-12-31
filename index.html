@@ -67,12 +67,15 @@
 
     <div id="report-modal" class="fixed inset-0 bg-slate-900/40 hidden flex items-center justify-center z-[300] p-4 backdrop-blur-sm">
         <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-6 shadow-2xl text-center">
-            <div class="flex bg-slate-100 p-1 rounded-2xl mb-6">
+            <div class="flex bg-slate-100 p-1 rounded-2xl mb-4">
                 <button onclick="switchTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-sm transition-all tab-active">我撿到了東西</button>
                 <button onclick="switchTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-sm transition-all tab-inactive">我丟了東西</button>
             </div>
 
-            <span id="location-name" class="inline-block bg-slate-50 text-slate-500 text-[10px] font-black px-4 py-1 rounded-full mb-4">📍 定位中...</span>
+            <div class="mb-5">
+                <p class="text-[10px] text-slate-400 font-black mb-1">您選擇的地點</p>
+                <div id="location-name" class="inline-block px-6 py-2 bg-indigo-50 text-indigo-700 text-xl font-black rounded-2xl border border-indigo-100">📍 定位中...</div>
+            </div>
             
             <div class="space-y-3 mb-6">
                 <input type="text" id="in-nick" placeholder="您的暱稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-100">
@@ -142,7 +145,6 @@
         let currentTab = 'found'; 
         let buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 1. 分頁切換 ---
         window.switchTab = (type) => {
             currentTab = type;
             const btnF = document.getElementById('tab-found'), btnL = document.getElementById('tab-lost'), btnSubmit = document.getElementById('btn-submit');
@@ -159,7 +161,6 @@
             }
         };
 
-        // --- 2. 監聽與渲染 ---
         onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
         onSnapshot(LOST_COLL, (s) => { 
             reports = s.docs.map(d => ({ id: d.id, ...d.data() })); 
@@ -171,14 +172,12 @@
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
-        // --- 3. 暱稱即時檢查 ---
         document.getElementById('in-nick').onblur = async function() {
             const n = this.value.trim(); if(!n) return;
             const snap = await getDoc(doc(USER_COLL, n));
             if(snap.exists()) alert(`🔍 偵測到傳奇人物！\n「${n}」目前已累積 ${snap.data().merit || 0} 功德。\n歡迎回來！`);
         };
 
-        // --- 4. 地圖點擊與提交 ---
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
@@ -208,7 +207,6 @@
                 });
                 if(currentTab === 'found') await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
 
-                // 送出後全數重整
                 document.getElementById('in-nick').value = "";
                 document.getElementById('in-item').value = "";
                 document.getElementById('in-floor').value = "";
@@ -226,13 +224,11 @@
             btn.disabled = false;
         };
 
-        // --- 5. 膠囊型精確判定邏輯 ---
         function isPointInShape(px, py, box) {
             const rad = -box.angle * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
             const rx = (px - cx) * Math.cos(rad) - (py - cy) * Math.sin(rad);
             const ry = (px - cx) * Math.sin(rad) + (py - cy) * Math.cos(rad);
-
             if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
             if (box.type === 'ellipse') return (Math.pow(rx, 2)/Math.pow(box.w/2, 2)) + (Math.pow(ry, 2)/Math.pow(box.h/2, 2)) <= 1;
             if (box.type === 'capsule') {
@@ -252,7 +248,6 @@
             return false;
         }
 
-        // --- 渲染函數 ---
         function renderShapes() {
             const layer = document.getElementById('shapes-layer'); layer.innerHTML = '';
             buildings.forEach(b => {
@@ -303,7 +298,7 @@
         };
 
         window.claimItem = async (id, f, type) => {
-            if(confirm(type === 'found' ? `確認認領？將給予拾獲者 20 功德。` : `東西找回了嗎？確認後標記將消失。`)) {
+            if(confirm(type === 'found' ? `確定認領？將給予拾獲者 20 功德。` : `東西找回了嗎？確認後標記將消失。`)) {
                 await deleteDoc(doc(db, "all_reports_v3", id));
                 if(type === 'found') await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true });
                 closeDetail();
