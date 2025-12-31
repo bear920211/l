@@ -3,47 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTCU 互助會 (環境樓專用)</title>
+    <title>環境樓定位修正</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
+        body { font-family: 'Noto Sans TC', sans-serif; background: #f1f5f9; }
         .map-container {
             position: relative; width: 100%; height: 600px;
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
-            border-radius: 2.5rem; border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-            overflow: hidden; cursor: crosshair;
+            border-radius: 2rem; border: 4px solid white; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: visible; /* 確保按鈕不會被切掉 */
         }
-        #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
-        #shapes-layer { z-index: 80; }
-        #pins-layer { z-index: 90; }
-        .building-shape { position: absolute; transform-origin: center; pointer-events: auto; background: transparent; }
-        
-        /* 環境樓專用：直角三角形 CSS */
+        #shapes-layer { position: absolute; inset: 0; pointer-events: none; z-index: 100; }
+        .building-shape { 
+            position: absolute; 
+            transform-origin: center; 
+            pointer-events: auto; /* 確保在編輯模式下可點擊 */
+            cursor: move;
+        }
+        /* 直角三角形 */
         .s-triangle { 
             clip-path: polygon(0% 0%, 0% 100%, 100% 100%); 
             -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%); 
         }
-
-        .edit-controls { position: absolute; top: -50px; left: 50%; transform: translateX(-50%); background: white; padding: 6px; border-radius: 10px; display: flex; gap: 5px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 1000; }
-        .edit-btn { padding: 4px 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; font-weight: bold; background: white; transition: all 0.2s; }
-        .edit-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+        /* 強化的控制列 */
+        .edit-controls { 
+            position: absolute; 
+            bottom: -60px; /* 改到下方避免被擋住 */
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: #1e293b; /* 深色背景更明顯 */
+            padding: 8px; 
+            border-radius: 12px; 
+            display: flex; 
+            gap: 6px; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3); 
+            z-index: 9999; 
+            white-space: nowrap;
+        }
+        .edit-btn { 
+            padding: 5px 10px; 
+            background: #334155; 
+            color: white; 
+            border-radius: 6px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            border: 1px solid #475569;
+        }
+        .edit-btn:active { background: #4f46e5; }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="p-8">
 
-    <div class="max-w-6xl mx-auto text-center">
-        <h1 class="text-2xl font-black text-slate-800 mb-2">💎 NTCU 環境樓定位編輯</h1>
-        <p id="mode-indicator" class="text-slate-500 text-sm mb-6">連點地圖 3 下進入編輯模式</p>
+    <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-black text-slate-800">🛠 環境樓精確定位工具</h1>
+            <p id="mode-status" class="text-indigo-600 font-bold mt-2">請連點地圖 3 下進入編輯模式</p>
+        </div>
 
         <div id="map-root" class="map-container" onclick="handleMapClick(event)">
             <div id="shapes-layer"></div>
-            <div id="pins-layer"></div>
         </div>
         
-        <p id="edit-tip" class="hidden mt-4 text-red-500 text-sm font-bold animate-bounce">
-            🛠 編輯中：點擊環境樓紅框顯示控制台，調整完畢請按 💾 存檔！
-        </p>
+        <div class="mt-20 p-6 bg-white rounded-2xl shadow-sm border border-slate-200">
+            <h3 class="font-bold text-slate-700 mb-2">使用說明：</h3>
+            <ul class="text-sm text-slate-500 list-disc ml-5 space-y-1">
+                <li>連點三下進入模式後，地圖會變暗。</li>
+                <li>點擊環境樓位置可新增三角形，點擊<strong>三角形本身</strong>才會出現控制列。</li>
+                <li>調整完畢請務必點擊綠色的 <b>[💾 存檔]</b> 按鈕。</li>
+            </ul>
+        </div>
     </div>
 
     <script type="module">
@@ -63,31 +92,26 @@
         const db = getFirestore(app);
         const CAMPUS_DOC = doc(db, "campus_data", "NTCU-CAMPUS-V2");
 
-        let buildings = [], editMode = false;
+        let buildings = [], editMode = false, selectedIdx = -1;
 
-        // 核心幾何判定 (直角三角形)
+        // 偵測是否點擊在形狀內
         function isPointInShape(px, py, box) {
             const angleRad = (box.angle || 0) * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
             const dx = px - cx, dy = py - cy;
             const rx = dx * Math.cos(-angleRad) - dy * Math.sin(-angleRad);
             const ry = dx * Math.sin(-angleRad) + dy * Math.cos(-angleRad);
-
-            if (box.type === 'triangle') {
-                const x1 = -box.w/2, y1 = -box.h/2, x2 = -box.w/2, y2 = box.h/2, x3 = box.w/2, y3 = box.h/2;
-                const getArea = (xa, ya, xb, yb, xc, yc) => Math.abs((xa*(yb-yc) + xb*(yc-ya) + xc*(ya-yb))/2.0);
-                const area = getArea(x1,y1,x2,y2,x3,y3);
-                const a1 = getArea(rx,ry,x1,y1,x2,y2), a2 = getArea(rx,ry,x2,y2,x3,y3), a3 = getArea(rx,ry,x3,y3,x1,y1);
-                return Math.abs(area - (a1 + a2 + a3)) < 2.5;
-            }
-            return false;
+            const x1 = -box.w/2, y1 = -box.h/2, x2 = -box.w/2, y2 = box.h/2, x3 = box.w/2, y3 = box.h/2;
+            const getArea = (xa, ya, xb, yb, xc, yc) => Math.abs((xa*(yb-yc) + xb*(yc-ya) + xc*(ya-yb))/2.0);
+            const area = getArea(x1,y1,x2,y2,x3,y3);
+            const a1 = getArea(rx,ry,x1,y1,x2,y2), a2 = getArea(rx,ry,x2,y2,x3,y3), a3 = getArea(rx,ry,x3,y3,x1,y1);
+            return Math.abs(area - (a1 + a2 + a3)) < 2.0;
         }
 
         window.addEventListener('click', (e) => {
             if (e.detail === 3) {
                 editMode = !editMode;
-                document.getElementById('edit-tip').classList.toggle('hidden');
-                document.getElementById('mode-indicator').innerText = editMode ? "🛠 編輯模式已開啟" : "編輯模式已關閉";
+                document.getElementById('mode-status').innerText = editMode ? "⚠️ 編輯模式：請點擊建築物進行調整" : "已離開編輯模式";
                 renderShapes();
             }
         });
@@ -99,45 +123,52 @@
             const clickY = ((e.clientY-r.top)/r.height)*100;
 
             const hitIndex = buildings.findIndex(b => isPointInShape(clickX, clickY, b));
-            if (hitIndex === -1) {
-                if (confirm("要在這裡新增環境樓嗎？")) {
-                    buildings.push({ name: "環境樓", type: 'triangle', x: clickX-5, y: clickY-5, w: 12, h: 8, angle: 0 });
+            
+            if (hitIndex !== -1) {
+                selectedIdx = hitIndex;
+                renderShapes();
+            } else {
+                if(confirm("要在這裡新增環境樓嗎？")) {
+                    buildings.push({ name: "環境樓", type: 'triangle', x: clickX-5, y: clickY-5, w: 10, h: 10, angle: 0 });
+                    selectedIdx = buildings.length - 1;
                     renderShapes();
                 }
             }
         };
 
-        window.adjust = (idx, prop, val) => {
-            buildings[idx][prop] = Math.round((buildings[idx][prop] + val) * 10) / 10;
+        window.adjust = (prop, val) => {
+            if (selectedIdx === -1) return;
+            buildings[selectedIdx][prop] = Math.round((buildings[selectedIdx][prop] + val) * 10) / 10;
             renderShapes();
         };
 
         window.saveData = async () => {
-            try {
-                await updateDoc(CAMPUS_DOC, { buildings: buildings });
-                alert("環境樓定位已更新成功！");
-            } catch (err) { alert("存檔失敗：" + err.message); }
+            await updateDoc(CAMPUS_DOC, { buildings: buildings });
+            alert("存檔成功！");
         };
 
         function renderShapes() {
             const layer = document.getElementById('shapes-layer'); layer.innerHTML = '';
             buildings.forEach((b, i) => {
-                if (b.name !== "環境樓") return; // 僅處理環境樓
                 const el = document.createElement('div');
                 el.className = `building-shape s-${b.type}`;
-                const debug = editMode ? `border: 2px solid #ef4444; background: rgba(239,68,68,0.2);` : `background: transparent;`;
-                el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle||0}deg); ${debug}`;
+                const isSelected = (i === selectedIdx && editMode);
+                const style = isSelected ? 
+                    `border: 3px solid #6366f1; background: rgba(99,102,241,0.4);` : 
+                    (editMode ? `border: 1px solid red; background: rgba(255,0,0,0.1);` : `background: transparent;`);
                 
-                if (editMode) {
+                el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle||0}deg); ${style}`;
+                
+                if (isSelected) {
                     const ctrl = document.createElement('div');
                     ctrl.className = "edit-controls";
                     ctrl.innerHTML = `
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'x',-0.2)">⬅️</button>
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'x',0.2)">➡️</button>
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'w',0.5)">寬</button>
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'h',0.5)">高</button>
-                        <button class="edit-btn text-blue-500" onclick="event.stopPropagation();adjust(${i},'angle',2)">🔄 旋轉</button>
-                        <button class="edit-btn text-green-600" onclick="event.stopPropagation();saveData()">💾 存檔</button>
+                        <button class="edit-btn" onclick="event.stopPropagation();adjust('x',-0.5)">左</button>
+                        <button class="edit-btn" onclick="event.stopPropagation();adjust('x',0.5)">右</button>
+                        <button class="edit-btn" onclick="event.stopPropagation();adjust('w',1)">寬+</button>
+                        <button class="edit-btn" onclick="event.stopPropagation();adjust('h',1)">高+</button>
+                        <button class="edit-btn text-yellow-400" onclick="event.stopPropagation();adjust('angle',5)">🔄 旋轉</button>
+                        <button class="edit-btn text-green-400" onclick="event.stopPropagation();saveData()">💾 存檔</button>
                     `;
                     el.appendChild(ctrl);
                 }
