@@ -19,11 +19,9 @@
         #pins-layer { z-index: 90; }
         .building-shape { position: absolute; transform-origin: center; pointer-events: auto; background: transparent; }
         
-        /* 三角形 CSS 繪製 */
-        .s-triangle { 
-            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-            background: rgba(79, 70, 229, 0.1); /* 增加透明底色方便除錯，正式版可改回 transparent */
-        }
+        /* 形狀預覽支援 */
+        .s-triangle { clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+        .s-ellipse { border-radius: 50%; }
 
         .floating-pin { 
             position: absolute; transform: translate(-50%, -50%); 
@@ -71,7 +69,7 @@
                 <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
                     <div class="p-5 border-b bg-slate-50 font-black text-slate-600 text-sm flex justify-between">
                         <span>最新動態</span>
-                        <span id="items-count" class="text-indigo-500">0</span>
+                        <span id="items-count" class="text-indigo-500 font-bold">0</span>
                     </div>
                     <div id="items-list" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
                 </div>
@@ -87,16 +85,16 @@
             </div>
             <div class="mb-5"><div id="location-name" class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-base font-black rounded-2xl">定位中...</div></div>
             <div class="space-y-3 mb-6 text-left">
-                <input type="text" id="in-nick" placeholder="暱稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <input type="text" id="in-floor" placeholder="具體描述 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-nick" placeholder="暱稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="in-floor" placeholder="具體描述 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500">
                 <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer text-center" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-24 object-cover"></div>
                     <div id="upload-placeholder" class="text-slate-400 text-[10px]">📷 拍照上傳 (選填)</div>
                 </div>
             </div>
-            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg">確認標註</button>
+            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition">確認標註</button>
             <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs">取消</button>
         </div>
     </div>
@@ -116,7 +114,7 @@
                     <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
                 </div>
                 <div class="flex gap-2">
-                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl">處理完成</button>
+                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl hover:bg-emerald-600">處理完成</button>
                     <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
                 </div>
             </div>
@@ -144,45 +142,40 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // 修改後的點擊判定核心邏輯
+        // --- 核心幾何判定函數 ---
         function isPointInShape(px, py, box) {
             const angleRad = (box.angle || 0) * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
             
-            // 1. 座標平移與逆旋轉 (將點擊位置轉回物體的原始座標系)
-            const dx = px - cx;
-            const dy = py - cy;
+            // 轉化為局部座標 (處理旋轉)
+            const dx = px - cx, dy = py - cy;
             const rx = dx * Math.cos(-angleRad) - dy * Math.sin(-angleRad);
             const ry = dx * Math.sin(-angleRad) + dy * Math.cos(-angleRad);
 
-            // 矩形判定
             if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
-            
-            // 橢圓判定
             if (box.type === 'ellipse') return (rx*rx)/((box.w/2)**2) + (ry*ry)/((box.h/2)**2) <= 1;
             
-            // 三角形判定 (與 CSS clip-path polygon(50% 0%, 0% 100%, 100% 100%) 一致)
             if (box.type === 'triangle') {
-                const x1 = 0, y1 = -box.h/2;         // 頂點
-                const x2 = -box.w/2, y2 = box.h/2;   // 左下
-                const x3 = box.w/2, y3 = box.h/2;    // 右下
-                
-                const getArea = (ax, ay, bx, by, cx, cy) => Math.abs((ax*(by-cy) + bx*(cy-ay) + cx*(ay-by))/2);
-                const totalArea = getArea(x1, y1, x2, y2, x3, y3);
-                const a1 = getArea(rx, ry, x1, y1, x2, y2);
-                const a2 = getArea(rx, ry, x2, y2, x3, y3);
-                const a3 = getArea(rx, ry, x3, y3, x1, y1);
-                
-                return Math.abs(totalArea - (a1 + a2 + a3)) < 0.1; 
+                const x1 = 0, y1 = -box.h/2;
+                const x2 = -box.w/2, y2 = box.h/2;
+                const x3 = box.w/2, y3 = box.h/2;
+                const area = Math.abs((x1*(y2-y3) + x2*(y3-y1) + x3*(y1-y2))/2);
+                const a1 = Math.abs((rx*(y1-y2) + x1*(y2-ry) + x2*(ry-y1))/2);
+                const a2 = Math.abs((rx*(y2-y3) + x2*(y3-ry) + x3*(ry-y2))/2);
+                const a3 = Math.abs((rx*(y3-y1) + x3*(y1-ry) + x1*(ry-y3))/2);
+                return Math.abs(area - (a1 + a2 + a3)) < 0.1;
             }
 
-            // 膠囊判定
             if (box.type === 'capsule') {
                 const r = Math.min(box.w, box.h) / 2;
                 if (box.w >= box.h) {
-                    const l = box.w - 2 * r;
-                    if (Math.abs(ry) <= r && Math.abs(rx) <= l/2) return true;
-                    return ((Math.abs(rx) - l/2)**2 + ry*ry) <= r*r;
+                    const d = (box.w - box.h) / 2;
+                    if (Math.abs(ry) <= r && Math.abs(rx) <= d) return true;
+                    return Math.sqrt((Math.abs(rx) - d)**2 + ry**2) <= r;
+                } else {
+                    const d = (box.h - box.w) / 2;
+                    if (Math.abs(rx) <= r && Math.abs(ry) <= d) return true;
+                    return Math.sqrt(rx**2 + (Math.abs(ry) - d)**2) <= r;
                 }
             }
             return false;
@@ -196,7 +189,7 @@
             document.getElementById('report-modal').classList.remove('hidden');
         };
 
-        // --- 以下功能保持不變 ---
+        // --- Firebase 監聽 ---
         onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
         onSnapshot(LOST_COLL, (s) => { 
             reports = s.docs.map(d => ({ id: d.id, ...d.data() })); 
@@ -204,23 +197,36 @@
             renderPins(); renderList(); 
         });
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
-            document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `<div class="flex justify-between p-2 bg-white/10 rounded-xl"><span>${i+1}. ${d.id}</span><b>${d.data().merit || 0} pts</b></div>`).join('');
+            document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
+                <div class="flex justify-between items-center p-2 bg-white/10 rounded-xl">
+                    <span>${i+1}. ${d.id}</span>
+                    <b class="bg-indigo-400/30 px-2 py-0.5 rounded-lg">${d.data().merit || 0} pts</b>
+                </div>`).join('');
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
+        // --- 功能函數 ---
         document.getElementById('btn-submit').onclick = async () => {
             const nick = document.getElementById('in-nick').value.trim();
             const item = document.getElementById('in-item').value.trim();
+            const floor = document.getElementById('in-floor').value.trim();
             if(!nick || !item) return alert("暱稱與物品為必填");
-            await setDoc(doc(LOST_COLL), { 
-                type: currentTab, name: item, finder: nick, 
-                floor_info: document.getElementById('in-floor').value,
-                location: document.getElementById('location-name').innerText.replace('📍 ',''),
-                imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
-                x: clickPos.x, y: clickPos.y, time: Date.now() 
-            });
-            if(currentTab === 'found') await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
-            closeModals();
+            
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true; btn.innerText = "提交中...";
+
+            try {
+                await setDoc(doc(LOST_COLL), { 
+                    type: currentTab, name: item, finder: nick, 
+                    floor_info: floor,
+                    location: document.getElementById('location-name').innerText.replace('📍 ',''),
+                    imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
+                    x: clickPos.x, y: clickPos.y, time: Date.now() 
+                });
+                if(currentTab === 'found') await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
+                closeModals();
+            } catch (err) { alert("發送失敗，請重試"); }
+            finally { btn.disabled = false; btn.innerText = "確認標註"; }
         };
 
         window.openDetail = (id) => {
@@ -231,15 +237,19 @@
             document.getElementById('detail-name').innerText = item.name;
             document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
             document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供具體描述";
+            
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
-            if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
-            else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
+            if(item.imageUrl && item.imageUrl.length > 10) { 
+                img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); 
+            } else { 
+                img.classList.add('hidden'); ph.classList.remove('hidden'); 
+            }
             document.getElementById('btn-claim-now').onclick = () => claimItem(item.id, item.finder, item.type);
             document.getElementById('detail-modal').classList.remove('hidden');
         };
 
         window.claimItem = async (id, f, type) => {
-            if(confirm('確認處理完成？')) {
+            if(confirm('確認此物品已處理完成（已領回或已撤銷）？')) {
                 await deleteDoc(doc(db, "all_reports_v3", id));
                 if(type === 'found') await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true });
                 closeDetail();
@@ -275,16 +285,20 @@
 
         function renderList() {
             document.getElementById('items-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => `
-                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 cursor-pointer">
+                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 cursor-pointer hover:shadow-md transition">
                     <div class="w-10 h-10 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden">
-                        ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '🎁'}
+                        ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '<span class="text-lg">🎁</span>'}
                     </div>
-                    <div class="flex-1 truncate"><div class="font-bold text-sm">${i.name}</div><div class="text-[9px] text-slate-400">📍 ${i.location}</div></div>
+                    <div class="flex-1 truncate">
+                        <div class="font-bold text-sm text-slate-700">${i.name}</div>
+                        <div class="text-[9px] text-slate-400">📍 ${i.location}</div>
+                    </div>
                 </div>`).join('');
         }
 
         window.previewImage = (input) => {
             const f = input.files[0]; if(!f) return;
+            if(f.size > 2 * 1024 * 1024) return alert("圖片太大囉，請選擇 2MB 以下的圖片");
             const r = new FileReader(); r.onload = e => { 
                 document.getElementById('img-preview').src = e.target.result; 
                 document.getElementById('preview-container').classList.remove('hidden'); 
@@ -292,7 +306,15 @@
             };
             r.readAsDataURL(f);
         };
-        window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
+
+        window.closeModals = () => {
+            document.getElementById('report-modal').classList.add('hidden');
+            document.getElementById('in-item').value = '';
+            document.getElementById('in-floor').value = '';
+            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('upload-placeholder').classList.remove('hidden');
+            document.getElementById('img-preview').src = '';
+        };
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
 </body>
