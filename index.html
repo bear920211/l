@@ -99,21 +99,21 @@
                 <div id="type-tag" class="absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 shadow-md"></div>
             </div>
             <div class="p-6 overflow-y-auto">
-                <h2 id="detail-name" class="text-2xl font-black text-slate-800">物品名稱</h2>
-                <p id="detail-loc" class="text-slate-400 font-bold text-sm mb-4"></p>
+                <h2 id="detail-name" class="text-2xl font-black text-slate-800 line-clamp-1">物品名稱</h2>
+                <p id="detail-loc" class="text-slate-400 font-bold text-sm mb-4 truncate"></p>
                 <div class="space-y-3 mb-6 text-left">
                     <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500">
                         <p class="text-[9px] text-slate-400 font-black">具體位置</p>
                         <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
                     </div>
                     <div class="bg-amber-50 rounded-xl p-3 border-l-4 border-amber-400">
-                        <p class="text-[9px] text-slate-400 font-black">詳細描述</p>
+                        <p class="text-[9px] text-amber-500 font-black">詳細描述</p>
                         <p id="detail-desc" class="font-bold text-sm text-slate-700"></p>
                     </div>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 text-sm">
                     <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl">是我的！</button>
-                    <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl text-sm">關閉</button>
+                    <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
                 </div>
             </div>
         </div>
@@ -140,13 +140,11 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 修正版幾何判定 (處理旋轉三角形) ---
+        // --- 核心幾何 (修正三角形判定) ---
         function isPointInShape(px, py, box) {
             const angleRad = (box.angle || 0) * Math.PI / 180;
-            const cx = box.x + box.w / 2;
-            const cy = box.y + box.h / 2;
-            const dx = px - cx;
-            const dy = py - cy;
+            const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+            const dx = px - cx, dy = py - cy;
             const rx = dx * Math.cos(-angleRad) - dy * Math.sin(-angleRad);
             const ry = dx * Math.sin(-angleRad) + dy * Math.cos(-angleRad);
 
@@ -157,7 +155,19 @@
                 const getArea = (xa, ya, xb, yb, xc, yc) => Math.abs((xa*(yb-yc) + xb*(yc-ya) + xc*(ya-yb))/2.0);
                 const area = getArea(x1,y1,x2,y2,x3,y3);
                 const a1 = getArea(rx,ry,x1,y1,x2,y2), a2 = getArea(rx,ry,x2,y2,x3,y3), a3 = getArea(rx,ry,x3,y3,x1,y1);
-                return Math.abs(area - (a1 + a2 + a3)) < 1.0;
+                return Math.abs(area - (a1 + a2 + a3)) < 0.5;
+            }
+            if (box.type === 'capsule') {
+                const r = Math.min(box.w, box.h) / 2;
+                if (box.w >= box.h) {
+                    const d = (box.w - box.h) / 2;
+                    if (Math.abs(ry) <= r && Math.abs(rx) <= d) return true;
+                    return Math.sqrt((Math.abs(rx) - d)**2 + ry**2) <= r;
+                } else {
+                    const d = (box.h - box.w) / 2;
+                    if (Math.abs(rx) <= r && Math.abs(ry) <= d) return true;
+                    return Math.sqrt(rx**2 + (Math.abs(ry) - d)**2) <= r;
+                }
             }
             return false;
         }
@@ -168,26 +178,19 @@
             let hit = buildings.find(b => isPointInShape(clickPos.x, clickPos.y, b));
             document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
             document.getElementById('report-modal').classList.remove('hidden');
-            switchTab(currentTab); // 開啟時強制刷新按鈕文字與顏色
+            // 初始化按鈕文字
+            const btn = document.getElementById('btn-submit');
+            btn.innerText = currentTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
+            btn.className = `w-full py-4 text-white font-black rounded-2xl shadow-lg transition ${currentTab==='found'?'bg-indigo-600':'bg-red-500'}`;
         };
 
         window.switchTab = (t) => {
             currentTab = t;
+            document.getElementById('tab-found').className = t==='found' ? "flex-1 py-2 rounded-xl font-black text-sm tab-active" : "flex-1 py-2 rounded-xl font-black text-sm text-slate-400";
+            document.getElementById('tab-lost').className = t==='lost' ? "flex-1 py-2 rounded-xl font-black text-sm tab-lost-active" : "flex-1 py-2 rounded-xl font-black text-sm text-slate-400";
             const btn = document.getElementById('btn-submit');
-            const tabF = document.getElementById('tab-found');
-            const tabL = document.getElementById('tab-lost');
-            
-            if (t === 'found') {
-                tabF.className = "flex-1 py-2 rounded-xl font-black text-sm tab-active";
-                tabL.className = "flex-1 py-2 rounded-xl font-black text-sm text-slate-400";
-                btn.innerText = "確認標註 (+50 功德)";
-                btn.style.backgroundColor = "#4f46e5";
-            } else {
-                tabF.className = "flex-1 py-2 rounded-xl font-black text-sm text-slate-400";
-                tabL.className = "flex-1 py-2 rounded-xl font-black text-sm tab-lost-active";
-                btn.innerText = "發布求助標記";
-                btn.style.backgroundColor = "#ef4444";
-            }
+            btn.innerText = t === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
+            btn.className = `w-full py-4 text-white font-black rounded-2xl shadow-lg transition ${t==='found'?'bg-indigo-600':'bg-red-500'}`;
         };
 
         onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
@@ -210,10 +213,10 @@
             const item = document.getElementById('in-item').value.trim();
             const floor = document.getElementById('in-floor').value.trim();
             const desc = document.getElementById('in-desc').value.trim();
-            if(!nick || !item) return alert("請填寫暱稱與物品名稱");
+            if(!nick || !item) return alert("暱稱與物品名稱是必填項目唷！");
             
             const btn = document.getElementById('btn-submit');
-            btn.disabled = true; btn.innerText = "上傳中...";
+            btn.disabled = true; btn.innerText = "正在飛速上傳中...";
 
             try {
                 await setDoc(doc(LOST_COLL), { 
@@ -225,10 +228,11 @@
                 });
                 if(currentTab === 'found') await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
                 closeModals();
-            } catch (err) { alert("上傳失敗"); } 
-            finally { 
+            } catch (err) { 
+                alert("噢不！發生了網路錯誤，請再試一次"); 
+            } finally { 
                 btn.disabled = false;
-                switchTab(currentTab); 
+                btn.innerText = currentTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
             }
         };
 
@@ -252,7 +256,7 @@
         };
 
         window.claimItem = async (id, f, type) => {
-            if(confirm('確認領回？')) {
+            if(confirm('確認是你的物品，且你已經領回了嗎？')) {
                 await deleteDoc(doc(db, "all_reports_v3", id));
                 if(type === 'found') await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true });
                 closeDetail();
@@ -295,6 +299,7 @@
 
         window.previewImage = (input) => {
             const f = input.files[0]; if(!f) return;
+            if(f.size > 2 * 1024 * 1024) return alert("圖片太大囉，請選擇 2MB 以下的圖片");
             const r = new FileReader(); r.onload = e => { 
                 document.getElementById('img-preview').src = e.target.result; 
                 document.getElementById('preview-container').classList.remove('hidden'); 
@@ -310,6 +315,7 @@
             document.getElementById('in-desc').value = '';
             document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('upload-placeholder').classList.remove('hidden');
+            document.getElementById('img-preview').src = '';
         };
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
