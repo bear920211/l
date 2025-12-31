@@ -18,24 +18,28 @@
         #shapes-layer { z-index: 80; }
         #pins-layer { z-index: 90; }
         .building-shape { position: absolute; transform-origin: center; pointer-events: auto; background: transparent; }
-        .s-rect { border-radius: 2px; }
-        .s-capsule { border-radius: 999px !important; }
-        .s-ellipse { border-radius: 50% !important; }
-
-        /* 精簡圓點標記與動畫 */
+        
+        /* 純圓點標記樣式 */
         .floating-pin { 
-            animation: float 2s ease-in-out infinite; 
             position: absolute; 
-            transform: translate(-50%, -50%); /* 圓心對準 */
+            transform: translate(-50%, -50%); 
             cursor: pointer; 
             pointer-events: auto; 
             z-index: 100;
         }
-        @keyframes float { 
-            0%, 100% { transform: translate(-50%, -50%) scale(1); } 
-            50% { transform: translate(-50%, -50%) scale(1.1); } 
+        .pin-dot {
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            animation: pulse 2s infinite;
         }
-
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0.4); transform: scale(1); }
+            70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); transform: scale(1.1); }
+            100% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0); transform: scale(1); }
+        }
+        
         .tab-active { background-color: #4f46e5; color: white; }
         .tab-inactive { color: #64748b; }
         .tab-lost-active { background-color: #ef4444; color: white; }
@@ -46,8 +50,8 @@
     <div class="max-w-6xl mx-auto">
         <header class="flex justify-between items-center mb-8">
             <div>
-                <h1 class="text-3xl font-black text-slate-800">💎 NTCU 丟丟撿撿</h1>
-                <p class="text-slate-500 text-sm">點地圖，找東西：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
+                <h1 class="text-3xl font-black text-slate-800">💎 NTCU 一丟一撿</h1>
+                <p class="text-slate-500 text-sm">點擊地圖圓點查看：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
             </div>
             <div class="bg-white p-3 px-6 rounded-3xl shadow-sm border border-slate-100 text-right">
                 <span class="text-[9px] font-black text-slate-400 block">TOP HERO</span>
@@ -69,7 +73,7 @@
                 </div>
                 <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
                     <div class="p-5 border-b bg-slate-50 font-black text-slate-600 text-sm flex justify-between">
-                        <span>最新動態</span>
+                        <span>失物大集合</span>
                         <span id="items-count" class="text-indigo-500">0</span>
                     </div>
                     <div id="items-list" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
@@ -79,26 +83,26 @@
     </div>
 
     <div id="report-modal" class="fixed inset-0 bg-slate-900/40 hidden flex items-center justify-center z-[300] p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-6 shadow-2xl text-center border border-white">
+        <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-6 shadow-2xl text-center">
             <div class="flex bg-slate-100 p-1 rounded-2xl mb-4">
-                <button onclick="switchTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-sm transition-all tab-active">我撿到了</button>
-                <button onclick="switchTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-sm transition-all tab-inactive">我丟了</button>
+                <button onclick="switchTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-sm transition-all tab-active">我撿到了東西</button>
+                <button onclick="switchTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-sm transition-all tab-inactive">我丟了東西</button>
             </div>
             <div class="mb-5">
                 <div id="location-name" class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-base font-black rounded-2xl border border-indigo-100">📍 定位中...</div>
             </div>
-            <div class="space-y-3 mb-6">
-                <input type="text" id="in-nick" placeholder="您的暱稱" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <input type="text" id="in-item" placeholder="物品名稱" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+            <div class="space-y-3 mb-6 text-left">
+                <input type="text" id="in-nick" placeholder="您的暱稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-item" placeholder="物品名稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <input type="text" id="in-floor" placeholder="具體位置 (例：A302)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <input type="text" id="in-desc" placeholder="詳細描述 (顏色特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50" onclick="document.getElementById('in-file').click()">
+                <input type="text" id="in-desc" placeholder="詳細描述 (特徵、顏色)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 text-center" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-24 object-cover"></div>
                     <div id="upload-placeholder" class="text-slate-400 text-[10px] py-1">📷 拍下照片 (選填)</div>
                 </div>
             </div>
-            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all">確認標註 (+50 功德)</button>
+            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg transition-all active:scale-95">確認標註 (+50 功德)</button>
             <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs">取消</button>
         </div>
     </div>
@@ -110,21 +114,21 @@
                 <div id="no-img-placeholder" class="hidden text-slate-300 font-bold text-sm py-20">📷 無照片預覽</div>
                 <div id="type-tag" class="absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 shadow-md"></div>
             </div>
-            <div class="p-6 md:p-8 overflow-y-auto">
+            <div class="p-6 overflow-y-auto">
                 <h2 id="detail-name" class="text-2xl font-black text-slate-800">物品名稱</h2>
                 <p id="detail-loc" class="text-slate-400 font-bold text-sm mb-4">📍 位置</p>
                 <div class="space-y-3 mb-6">
-                    <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500 text-xs">
-                        <p class="text-[9px] text-slate-400 font-black uppercase">具體位置</p>
-                        <p id="detail-floor" class="font-bold text-slate-700 mt-1"></p>
+                    <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500">
+                        <p class="text-[9px] text-slate-400 font-black">具體位置</p>
+                        <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
                     </div>
-                    <div class="bg-slate-50 rounded-xl p-3 text-xs">
-                        <p class="text-[9px] text-slate-400 font-black uppercase">描述 / 發布者：<span id="detail-finder" class="text-indigo-500"></span></p>
-                        <p id="detail-desc" class="text-slate-600 mt-1"></p>
+                    <div class="bg-slate-50 rounded-xl p-3">
+                        <p class="text-[9px] text-slate-400 font-black">描述 / 發布者：<span id="detail-finder" class="text-indigo-600"></span></p>
+                        <p id="detail-desc" class="text-slate-600 text-sm"></p>
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all">確定認領</button>
+                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg transition-all active:scale-95">確定認領</button>
                     <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
                 </div>
             </div>
@@ -152,49 +156,17 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // 核心功能：標記渲染 (只留圓點)
-        function renderPins() {
-            const layer = document.getElementById('pins-layer'); layer.innerHTML = '';
-            reports.forEach(i => {
-                const isFound = i.type === 'found';
-                const colorClass = isFound ? 'bg-indigo-600' : 'bg-red-500';
-                const ringClass = isFound ? 'ring-indigo-400' : 'ring-red-400';
-                
-                const p = document.createElement('div'); 
-                p.className = 'floating-pin';
-                p.style.left = `${i.x}%`; 
-                p.style.top = `${i.y}%`;
-                
-                p.innerHTML = `
-                    <div class="relative flex items-center justify-center w-8 h-8 group">
-                        <div class="w-4 h-4 ${colorClass} rounded-full border-2 border-white shadow-lg ring-4 ${ringClass} ring-opacity-30"></div>
-                        <div class="absolute -bottom-2 scale-0 group-hover:scale-100 transition-transform bg-slate-800 text-white text-[8px] px-1.5 py-0.5 rounded z-50 pointer-events-none whitespace-nowrap shadow-xl">
-                            ${i.name}
-                        </div>
-                    </div>
-                `;
-                p.onclick = (e) => { e.stopPropagation(); openDetail(i.id); };
-                layer.appendChild(p);
-            });
-        }
-
-        // --- 其他邏輯保持不變 ---
+        // 切換類型邏輯
         window.switchTab = (type) => {
             currentTab = type;
             const btnF = document.getElementById('tab-found'), btnL = document.getElementById('tab-lost'), btnSubmit = document.getElementById('btn-submit');
-            if(type === 'found') {
-                btnF.className = "flex-1 py-2 rounded-xl font-black text-sm transition-all tab-active";
-                btnL.className = "flex-1 py-2 rounded-xl font-black text-sm transition-all tab-inactive";
-                btnSubmit.className = "w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg transition-all active:scale-95";
-                btnSubmit.innerText = "確認標註 (+50 功德)";
-            } else {
-                btnL.className = "flex-1 py-2 rounded-xl font-black text-sm transition-all tab-lost-active";
-                btnF.className = "flex-1 py-2 rounded-xl font-black text-sm transition-all tab-inactive";
-                btnSubmit.className = "w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg transition-all active:scale-95";
-                btnSubmit.innerText = "發布求助標記";
-            }
+            btnF.className = type === 'found' ? "flex-1 py-2 rounded-xl font-black text-sm transition-all tab-active" : "flex-1 py-2 rounded-xl font-black text-sm transition-all tab-inactive";
+            btnL.className = type === 'lost' ? "flex-1 py-2 rounded-xl font-black text-sm transition-all tab-lost-active" : "flex-1 py-2 rounded-xl font-black text-sm transition-all tab-inactive";
+            btnSubmit.className = type === 'found' ? "w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg transition-all active:scale-95" : "w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg transition-all active:scale-95";
+            btnSubmit.innerText = type === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
         };
 
+        // 地圖渲染
         onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
         onSnapshot(LOST_COLL, (s) => { 
             reports = s.docs.map(d => ({ id: d.id, ...d.data() })); 
@@ -205,6 +177,20 @@
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `<div class="flex justify-between p-2 bg-white/10 rounded-xl"><span>${i+1}. ${d.id}</span><b>${d.data().merit || 0} pts</b></div>`).join('');
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
+
+        // 地圖圓點渲染
+        function renderPins() {
+            const layer = document.getElementById('pins-layer'); layer.innerHTML = '';
+            reports.forEach(i => {
+                const p = document.createElement('div');
+                p.className = 'floating-pin';
+                p.style.left = `${i.x}%`; p.style.top = `${i.y}%`;
+                const dotColor = i.type === 'found' ? 'bg-indigo-600' : 'bg-red-500';
+                p.innerHTML = `<div class="pin-dot ${dotColor}"></div>`;
+                p.onclick = (e) => { e.stopPropagation(); openDetail(i.id); };
+                layer.appendChild(p);
+            });
+        }
 
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
@@ -218,7 +204,7 @@
             const nick = document.getElementById('in-nick').value.trim();
             const item = document.getElementById('in-item').value.trim();
             if(!nick || !item) return alert("暱稱與物品名稱必填！");
-            const btn = document.getElementById('btn-submit'); btn.innerText = "傳送中..."; btn.disabled = true;
+            const btn = document.getElementById('btn-submit'); btn.disabled = true;
             try {
                 await setDoc(doc(LOST_COLL), { 
                     type: currentTab, name: item, finder: nick, 
@@ -229,13 +215,36 @@
                     x: clickPos.x, y: clickPos.y, time: Date.now() 
                 });
                 if(currentTab === 'found') await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
-                ['in-nick','in-item','in-floor','in-desc','in-file'].forEach(id => document.getElementById(id).value = "");
-                document.getElementById('img-preview').src = "";
-                document.getElementById('preview-container').classList.add('hidden');
-                document.getElementById('upload-placeholder').classList.remove('hidden');
                 closeModals();
-            } catch (err) { alert("儲存失敗！"); }
-            btn.innerText = currentTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記"; btn.disabled = false;
+                alert("標註成功！");
+            } catch (err) { alert("失敗！"); }
+            btn.disabled = false;
+        };
+
+        window.openDetail = (id) => {
+            const item = reports.find(i => i.id === id); if(!item) return;
+            const tag = document.getElementById('type-tag'), claimBtn = document.getElementById('btn-claim-now');
+            tag.innerText = item.type === 'found' ? '拾獲物' : '協尋中';
+            tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 ${item.type==='found'?'bg-indigo-600':'bg-red-500'}`;
+            claimBtn.innerText = item.type === 'found' ? '確定認領' : '找到了';
+            document.getElementById('detail-name').innerText = item.name;
+            document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
+            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供位置";
+            document.getElementById('detail-finder').innerText = item.finder;
+            document.getElementById('detail-desc').innerText = item.description || "無描述。";
+            const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
+            if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
+            else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
+            claimBtn.onclick = () => claimItem(item.id, item.finder, item.type);
+            document.getElementById('detail-modal').classList.remove('hidden');
+        };
+
+        window.claimItem = async (id, f, type) => {
+            if(confirm('確認處理？')) {
+                await deleteDoc(doc(db, "all_reports_v3", id));
+                if(type === 'found') await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true });
+                closeDetail();
+            }
         };
 
         function renderShapes() {
@@ -258,30 +267,6 @@
                     </div>
                 </div>`).join('') || '<div class="text-center text-slate-300 text-xs py-10">尚無資訊</div>';
         }
-        window.openDetail = (id) => {
-            const item = reports.find(i => i.id === id); if(!item) return;
-            const tag = document.getElementById('type-tag'), claimBtn = document.getElementById('btn-claim-now');
-            tag.innerText = item.type === 'found' ? '拾獲物' : '協尋中';
-            tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 ${item.type==='found'?'bg-indigo-600':'bg-red-500'}`;
-            claimBtn.innerText = item.type === 'found' ? '確定認領' : '找到了';
-            document.getElementById('detail-name').innerText = item.name;
-            document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
-            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供位置";
-            document.getElementById('detail-finder').innerText = item.finder;
-            document.getElementById('detail-desc').innerText = item.description || "無描述。";
-            const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
-            if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
-            else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
-            claimBtn.onclick = () => claimItem(item.id, item.finder, item.type);
-            document.getElementById('detail-modal').classList.remove('hidden');
-        };
-        window.claimItem = async (id, f, type) => {
-            if(confirm('確認處理？')) {
-                await deleteDoc(doc(db, "all_reports_v3", id));
-                if(type === 'found') await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true });
-                closeDetail();
-            }
-        };
         function isPointInShape(px, py, box) {
             const rad = -box.angle * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
