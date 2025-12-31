@@ -87,14 +87,15 @@
             <div class="space-y-3 mb-6 text-left">
                 <input type="text" id="in-nick" placeholder="暱稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500">
                 <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500">
-                <input type="text" id="in-floor" placeholder="具體描述 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="in-desc" placeholder="詳細描述 (顏色特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer text-center" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-24 object-cover"></div>
                     <div id="upload-placeholder" class="text-slate-400 text-[10px]">📷 拍照上傳 (選填)</div>
                 </div>
             </div>
-            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition">確認標註</button>
+            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition">確認(+50功德值)</button>
             <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs">取消</button>
         </div>
     </div>
@@ -110,7 +111,7 @@
                 <h2 id="detail-name" class="text-2xl font-black text-slate-800">物品名稱</h2>
                 <p id="detail-loc" class="text-slate-400 font-bold text-sm mb-4">📍 位置</p>
                 <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500 mb-4">
-                    <p class="text-[9px] text-slate-400 font-black">具體/描述</p>
+                    <p class="text-[9px] text-slate-400 font-black">具體描述</p>
                     <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
                 </div>
                 <div class="flex gap-2">
