@@ -88,14 +88,14 @@
                 <input type="text" id="in-nick" placeholder="暱稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500">
                 <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500">
                 <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500">
-                <input type="text" id="in-desc" placeholder="詳細描述 (顏色特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-desc" placeholder="詳細描述 (顏色特徵、外觀)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500">
                 <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer text-center" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-24 object-cover"></div>
                     <div id="upload-placeholder" class="text-slate-400 text-[10px]">📷 拍照上傳 (選填)</div>
                 </div>
             </div>
-            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition">確認(+50功德值)</button>
+            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition">確認標註</button>
             <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs">取消</button>
         </div>
     </div>
@@ -110,12 +110,21 @@
             <div class="p-6 overflow-y-auto">
                 <h2 id="detail-name" class="text-2xl font-black text-slate-800">物品名稱</h2>
                 <p id="detail-loc" class="text-slate-400 font-bold text-sm mb-4">📍 位置</p>
-                <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500 mb-4">
-                    <p class="text-[9px] text-slate-400 font-black">具體位置</p>
-                    <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
+                
+                <div class="space-y-3 mb-6">
+                    <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500">
+                        <p class="text-[9px] text-slate-400 font-black uppercase">Exact Location / 具體位置</p>
+                        <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
+                    </div>
+
+                    <div class="bg-amber-50 rounded-xl p-3 border-l-4 border-amber-400">
+                        <p class="text-[9px] text-amber-500 font-black uppercase">Description / 詳細描述</p>
+                        <p id="detail-desc" class="font-bold text-sm text-slate-700"></p>
+                    </div>
                 </div>
-                <div class="flex gap-2">
-                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl hover:bg-emerald-600">是我的</button>
+
+                <div class="flex gap-2 text-sm">
+                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl hover:bg-emerald-600 transition">是我的！</button>
                     <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
                 </div>
             </div>
@@ -147,26 +156,18 @@
         function isPointInShape(px, py, box) {
             const angleRad = (box.angle || 0) * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
-            
-            // 轉化為局部座標 (處理旋轉)
             const dx = px - cx, dy = py - cy;
             const rx = dx * Math.cos(-angleRad) - dy * Math.sin(-angleRad);
             const ry = dx * Math.sin(-angleRad) + dy * Math.cos(-angleRad);
 
             if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
             if (box.type === 'ellipse') return (rx*rx)/((box.w/2)**2) + (ry*ry)/((box.h/2)**2) <= 1;
-            
             if (box.type === 'triangle') {
-                const x1 = 0, y1 = -box.h/2;
-                const x2 = -box.w/2, y2 = box.h/2;
-                const x3 = box.w/2, y3 = box.h/2;
+                const x1 = 0, y1 = -box.h/2, x2 = -box.w/2, y2 = box.h/2, x3 = box.w/2, y3 = box.h/2;
                 const area = Math.abs((x1*(y2-y3) + x2*(y3-y1) + x3*(y1-y2))/2);
-                const a1 = Math.abs((rx*(y1-y2) + x1*(y2-ry) + x2*(ry-y1))/2);
-                const a2 = Math.abs((rx*(y2-y3) + x2*(y3-ry) + x3*(ry-y2))/2);
-                const a3 = Math.abs((rx*(y3-y1) + x3*(y1-ry) + x1*(ry-y3))/2);
+                const a1 = Math.abs((rx*(y1-y2) + x1*(y2-ry) + x2*(ry-y1))/2), a2 = Math.abs((rx*(y2-y3) + x2*(y3-ry) + x3*(ry-y2))/2), a3 = Math.abs((rx*(y3-y1) + x3*(y1-ry) + x1*(ry-y3))/2);
                 return Math.abs(area - (a1 + a2 + a3)) < 0.1;
             }
-
             if (box.type === 'capsule') {
                 const r = Math.min(box.w, box.h) / 2;
                 if (box.w >= box.h) {
@@ -199,18 +200,19 @@
         });
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
-                <div class="flex justify-between items-center p-2 bg-white/10 rounded-xl">
+                <div class="flex justify-between items-center p-2 bg-white/10 rounded-xl text-[11px]">
                     <span>${i+1}. ${d.id}</span>
                     <b class="bg-indigo-400/30 px-2 py-0.5 rounded-lg">${d.data().merit || 0} pts</b>
                 </div>`).join('');
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
-        // --- 功能函數 ---
+        // --- 提交邏輯 (包含描述) ---
         document.getElementById('btn-submit').onclick = async () => {
             const nick = document.getElementById('in-nick').value.trim();
             const item = document.getElementById('in-item').value.trim();
             const floor = document.getElementById('in-floor').value.trim();
+            const desc = document.getElementById('in-desc').value.trim();
             if(!nick || !item) return alert("暱稱與物品為必填");
             
             const btn = document.getElementById('btn-submit');
@@ -220,6 +222,7 @@
                 await setDoc(doc(LOST_COLL), { 
                     type: currentTab, name: item, finder: nick, 
                     floor_info: floor,
+                    description: desc, // 新增描述欄位
                     location: document.getElementById('location-name').innerText.replace('📍 ',''),
                     imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
                     x: clickPos.x, y: clickPos.y, time: Date.now() 
@@ -230,14 +233,17 @@
             finally { btn.disabled = false; btn.innerText = "確認標註"; }
         };
 
+        // --- 開啟詳情 (渲染描述) ---
         window.openDetail = (id) => {
             const item = reports.find(i => i.id === id); if(!item) return;
             const tag = document.getElementById('type-tag');
             tag.innerText = item.type === 'found' ? '拾獲物' : '協尋中';
             tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 ${item.type==='found'?'bg-indigo-600':'bg-red-500'}`;
+            
             document.getElementById('detail-name').innerText = item.name;
             document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
-            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供具體描述";
+            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供具體位置";
+            document.getElementById('detail-desc').innerText = item.description || "無額外描述內容";
             
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
             if(item.imageUrl && item.imageUrl.length > 10) { 
@@ -286,13 +292,13 @@
 
         function renderList() {
             document.getElementById('items-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => `
-                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 cursor-pointer hover:shadow-md transition">
+                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 cursor-pointer hover:shadow-md transition shadow-sm">
                     <div class="w-10 h-10 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '<span class="text-lg">🎁</span>'}
                     </div>
                     <div class="flex-1 truncate">
                         <div class="font-bold text-sm text-slate-700">${i.name}</div>
-                        <div class="text-[9px] text-slate-400">📍 ${i.location}</div>
+                        <div class="text-[9px] text-slate-400 italic">${i.description ? i.description.substring(0,15)+'...' : '📍 '+i.location}</div>
                     </div>
                 </div>`).join('');
         }
@@ -312,6 +318,7 @@
             document.getElementById('report-modal').classList.add('hidden');
             document.getElementById('in-item').value = '';
             document.getElementById('in-floor').value = '';
+            document.getElementById('in-desc').value = '';
             document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('upload-placeholder').classList.remove('hidden');
             document.getElementById('img-preview').src = '';
