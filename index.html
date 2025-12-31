@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTCU 互助會 (管理者模式)</title>
+    <title>NTCU 互助會 (環境樓專用)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -19,117 +19,36 @@
         #pins-layer { z-index: 90; }
         .building-shape { position: absolute; transform-origin: center; pointer-events: auto; background: transparent; }
         
-        /* 1. 設定直角三角形 CSS */
-        .s-triangle { clip-path: polygon(0% 0%, 0% 100%, 100% 100%); -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%); }
-        .s-ellipse { border-radius: 50%; }
-        
-        .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; z-index: 100; }
-        .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.2); animation: pulse 2s infinite; }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0.4); transform: scale(1); }
-            70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); transform: scale(1.1); }
-            100% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0); transform: scale(1); }
+        /* 環境樓專用：直角三角形 CSS */
+        .s-triangle { 
+            clip-path: polygon(0% 0%, 0% 100%, 100% 100%); 
+            -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%); 
         }
-        .tab-active { background-color: #4f46e5 !important; color: white !important; }
-        .tab-lost-active { background-color: #ef4444 !important; color: white !important; }
 
-        /* 2. 新增管理微調工具的樣式 */
-        .edit-controls { position: absolute; top: -45px; left: 50%; transform: translateX(-50%); background: white; padding: 4px; border-radius: 8px; display: flex; gap: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; white-space: nowrap; }
-        .edit-btn { padding: 2px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 10px; font-weight: bold; background: white; }
+        .edit-controls { position: absolute; top: -50px; left: 50%; transform: translateX(-50%); background: white; padding: 6px; border-radius: 10px; display: flex; gap: 5px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 1000; }
+        .edit-btn { padding: 4px 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; font-weight: bold; background: white; transition: all 0.2s; }
+        .edit-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
     </style>
 </head>
 <body class="p-4 md:p-8">
 
-    <div class="max-w-6xl mx-auto">
-        <header class="flex justify-between items-center mb-8">
-            <div>
-                <h1 class="text-3xl font-black text-slate-800">💎 NTCU 一丟一撿</h1>
-                <p id="mode-indicator" class="text-slate-500 text-sm">點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
-            </div>
-            <div class="bg-white p-3 px-6 rounded-3xl shadow-sm border border-slate-100">
-                <span class="text-[9px] font-black text-slate-400 block text-right">TOP HERO</span>
-                <span id="top-hero-name" class="text-xl font-black text-indigo-600">載入中...</span>
-            </div>
-        </header>
+    <div class="max-w-6xl mx-auto text-center">
+        <h1 class="text-2xl font-black text-slate-800 mb-2">💎 NTCU 環境樓定位編輯</h1>
+        <p id="mode-indicator" class="text-slate-500 text-sm mb-6">連點地圖 3 下進入編輯模式</p>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div class="lg:col-span-8">
-                <div id="map-root" class="map-container" onclick="handleMapClick(event)">
-                    <div id="shapes-layer"></div>
-                    <div id="pins-layer"></div>
-                </div>
-                <p id="edit-tip" class="hidden mt-2 text-red-500 text-xs font-bold">🛠 編輯模式已開啟：點擊空白處新增建築，點擊紅框顯示微調按鈕。</p>
-            </div>
-            <div class="lg:col-span-4 flex flex-col gap-6">
-                <div class="bg-indigo-600 rounded-[2.5rem] p-6 text-white shadow-xl">
-                    <h3 class="font-bold mb-4 text-sm">🏆 功德榜</h3>
-                    <div id="leaderboard" class="space-y-3 text-xs"></div>
-                </div>
-                <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
-                    <div class="p-5 border-b bg-slate-50 font-black text-slate-600 text-sm flex justify-between">
-                        <span>最新動態</span>
-                        <span id="items-count" class="text-indigo-500 font-bold">0</span>
-                    </div>
-                    <div id="items-list" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
-                </div>
-            </div>
+        <div id="map-root" class="map-container" onclick="handleMapClick(event)">
+            <div id="shapes-layer"></div>
+            <div id="pins-layer"></div>
         </div>
-    </div>
-
-    <div id="report-modal" class="fixed inset-0 bg-slate-900/40 hidden flex items-center justify-center z-[300] p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-6 shadow-2xl text-center">
-            <div class="flex bg-slate-100 p-1 rounded-2xl mb-4">
-                <button onclick="switchTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-sm tab-active">撿到東西</button>
-                <button onclick="switchTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-sm text-slate-400">遺失物品</button>
-            </div>
-            <div class="mb-5"><div id="location-name" class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-base font-black rounded-2xl">定位中...</div></div>
-            <div class="space-y-3 mb-6 text-left">
-                <input type="text" id="in-nick" placeholder="暱稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <input type="text" id="in-desc" placeholder="詳細描述 (顏色特徵、外觀)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer text-center" onclick="document.getElementById('in-file').click()">
-                    <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
-                    <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-24 object-cover"></div>
-                    <div id="upload-placeholder" class="text-slate-400 text-[10px]">📷 拍照上傳 (選填)</div>
-                </div>
-            </div>
-            <button id="btn-submit" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg transition">確認標註 (+50 功德)</button>
-            <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs">取消</button>
-        </div>
-    </div>
-
-    <div id="detail-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[400] p-4 backdrop-blur-md">
-        <div class="bg-white rounded-[2.5rem] max-w-sm w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <div id="detail-header-color" class="w-full bg-slate-100 flex items-center justify-center relative min-h-[150px]">
-                <img id="detail-img" src="" class="w-full h-auto max-h-[50vh] object-contain block">
-                <div id="no-img-placeholder" class="hidden text-slate-300 font-bold text-sm py-20">📷 無照片預覽</div>
-                <div id="type-tag" class="absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 shadow-md"></div>
-            </div>
-            <div class="p-6 overflow-y-auto">
-                <h2 id="detail-name" class="text-2xl font-black text-slate-800 line-clamp-1">物品名稱</h2>
-                <p id="detail-loc" class="text-slate-400 font-bold text-sm mb-4 truncate"></p>
-                <div class="space-y-3 mb-6 text-left">
-                    <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500">
-                        <p class="text-[9px] text-slate-400 font-black">具體位置</p>
-                        <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
-                    </div>
-                    <div class="bg-amber-50 rounded-xl p-3 border-l-4 border-amber-400">
-                        <p class="text-[9px] text-amber-500 font-black">詳細描述</p>
-                        <p id="detail-desc" class="font-bold text-sm text-slate-700"></p>
-                    </div>
-                </div>
-                <div class="flex gap-2 text-sm">
-                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl">是我的！</button>
-                    <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
-                </div>
-            </div>
-        </div>
+        
+        <p id="edit-tip" class="hidden mt-4 text-red-500 text-sm font-bold animate-bounce">
+            🛠 編輯中：點擊環境樓紅框顯示控制台，調整完畢請按 💾 存檔！
+        </p>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
@@ -142,14 +61,11 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const LOST_COLL = collection(db, "all_reports_v3");
-        const USER_COLL = collection(db, "users_v2");
         const CAMPUS_DOC = doc(db, "campus_data", "NTCU-CAMPUS-V2");
 
-        let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
-        let editMode = false;
+        let buildings = [], editMode = false;
 
-        // --- 核心幾何 (已整合直角三角形碰撞偵測) ---
+        // 核心幾何判定 (直角三角形)
         function isPointInShape(px, py, box) {
             const angleRad = (box.angle || 0) * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
@@ -157,10 +73,7 @@
             const rx = dx * Math.cos(-angleRad) - dy * Math.sin(-angleRad);
             const ry = dx * Math.sin(-angleRad) + dy * Math.cos(-angleRad);
 
-            if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
-            if (box.type === 'ellipse') return (rx*rx)/((box.w/2)**2) + (ry*ry)/((box.h/2)**2) <= 1;
             if (box.type === 'triangle') {
-                // 更新直角三角形(左上, 左下, 右下)的座標系碰撞
                 const x1 = -box.w/2, y1 = -box.h/2, x2 = -box.w/2, y2 = box.h/2, x3 = box.w/2, y3 = box.h/2;
                 const getArea = (xa, ya, xb, yb, xc, yc) => Math.abs((xa*(yb-yc) + xb*(yc-ya) + xc*(ya-yb))/2.0);
                 const area = getArea(x1,y1,x2,y2,x3,y3);
@@ -170,131 +83,61 @@
             return false;
         }
 
-        // --- 整合管理員模式 ---
         window.addEventListener('click', (e) => {
             if (e.detail === 3) {
                 editMode = !editMode;
                 document.getElementById('edit-tip').classList.toggle('hidden');
-                document.getElementById('mode-indicator').innerText = editMode ? "🛠 編輯模式開啟 (連點3下關閉)" : "點擊地圖標註：藍色拾獲 / 紅色遺失";
+                document.getElementById('mode-indicator').innerText = editMode ? "🛠 編輯模式已開啟" : "編輯模式已關閉";
                 renderShapes();
             }
         });
 
-        window.handleMapClick = async (e) => {
+        window.handleMapClick = (e) => {
+            if (!editMode) return;
             const r = document.getElementById('map-root').getBoundingClientRect();
-            clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
-            
-            let hitIndex = buildings.findIndex(b => isPointInShape(clickPos.x, clickPos.y, b));
+            const clickX = ((e.clientX-r.left)/r.width)*100;
+            const clickY = ((e.clientY-r.top)/r.height)*100;
 
-            // 如果是編輯模式
-            if (editMode) {
-                if (hitIndex === -1) {
-                    const name = prompt("新增建築物名稱：", "環境樓");
-                    if(name) {
-                        buildings.push({ name, type: 'triangle', x: clickPos.x-5, y: clickPos.y-5, w: 10, h: 10, angle: 0 });
-                        renderShapes();
-                    }
+            const hitIndex = buildings.findIndex(b => isPointInShape(clickX, clickY, b));
+            if (hitIndex === -1) {
+                if (confirm("要在這裡新增環境樓嗎？")) {
+                    buildings.push({ name: "環境樓", type: 'triangle', x: clickX-5, y: clickY-5, w: 12, h: 8, angle: 0 });
+                    renderShapes();
                 }
-                return;
             }
-
-            let hit = buildings[hitIndex];
-            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
-            document.getElementById('report-modal').classList.remove('hidden');
         };
 
-        // 新增微調功能
         window.adjust = (idx, prop, val) => {
             buildings[idx][prop] = Math.round((buildings[idx][prop] + val) * 10) / 10;
             renderShapes();
         };
 
-        window.saveB = async () => {
-            await updateDoc(CAMPUS_DOC, { buildings: buildings });
-            alert("✅ 已同步至 Firebase！");
-        };
-
-        window.delB = (idx) => {
-            if(confirm('刪除建築物？')) { buildings.splice(idx,1); renderShapes(); }
-        };
-
-        // --- Firebase 核心保持不變 ---
-        onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
-        onSnapshot(LOST_COLL, (s) => { 
-            reports = s.docs.map(d => ({ id: d.id, ...d.data() })); 
-            document.getElementById('items-count').innerText = reports.length;
-            renderPins(); renderList(); 
-        });
-        onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
-            document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
-                <div class="flex justify-between items-center p-2 bg-white/10 rounded-xl text-[11px]">
-                    <span>${i+1}. ${d.id}</span>
-                    <b class="bg-indigo-400/30 px-2 py-0.5 rounded-lg">${d.data().merit || 0} pts</b>
-                </div>`).join('');
-            if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
-        });
-
-        // --- UI 功能維持原樣 ---
-        window.switchTab = (t) => {
-            currentTab = t;
-            document.getElementById('tab-found').className = t==='found' ? "flex-1 py-2 rounded-xl font-black text-sm tab-active" : "flex-1 py-2 rounded-xl font-black text-sm text-slate-400";
-            document.getElementById('tab-lost').className = t==='lost' ? "flex-1 py-2 rounded-xl font-black text-sm tab-lost-active" : "flex-1 py-2 rounded-xl font-black text-sm text-slate-400";
-            document.getElementById('btn-submit').innerText = t === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
-        };
-
-        document.getElementById('btn-submit').onclick = async () => {
-            const nick = document.getElementById('in-nick').value.trim();
-            const item = document.getElementById('in-item').value.trim();
-            if(!nick || !item) return alert("暱稱與物品名稱是必填項目！");
-            await setDoc(doc(LOST_COLL), { 
-                type: currentTab, name: item, finder: nick, 
-                floor_info: document.getElementById('in-floor').value,
-                description: document.getElementById('in-desc').value,
-                location: document.getElementById('location-name').innerText.replace('📍 ',''),
-                imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
-                x: clickPos.x, y: clickPos.y, time: Date.now() 
-            });
-            if(currentTab === 'found') await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
-            closeModals();
-        };
-
-        window.openDetail = (id) => {
-            const item = reports.find(i => i.id === id); if(!item) return;
-            const tag = document.getElementById('type-tag');
-            tag.innerText = item.type === 'found' ? '拾獲物' : '協尋中';
-            tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 ${item.type==='found'?'bg-indigo-600':'bg-red-500'}`;
-            document.getElementById('detail-name').innerText = item.name;
-            document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
-            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供具體位置";
-            document.getElementById('detail-desc').innerText = item.description || "無額外描述內容";
-            const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
-            if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
-            else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
-            document.getElementById('btn-claim-now').onclick = async () => {
-                if(confirm('領回了？')){ await deleteDoc(doc(db, "all_reports_v3", id)); closeDetail(); }
-            };
-            document.getElementById('detail-modal').classList.remove('hidden');
+        window.saveData = async () => {
+            try {
+                await updateDoc(CAMPUS_DOC, { buildings: buildings });
+                alert("環境樓定位已更新成功！");
+            } catch (err) { alert("存檔失敗：" + err.message); }
         };
 
         function renderShapes() {
             const layer = document.getElementById('shapes-layer'); layer.innerHTML = '';
             buildings.forEach((b, i) => {
+                if (b.name !== "環境樓") return; // 僅處理環境樓
                 const el = document.createElement('div');
                 el.className = `building-shape s-${b.type}`;
-                const debug = editMode ? `border: 2px solid #ef4444; background: rgba(239,68,68,0.2); pointer-events: auto;` : '';
+                const debug = editMode ? `border: 2px solid #ef4444; background: rgba(239,68,68,0.2);` : `background: transparent;`;
                 el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle||0}deg); ${debug}`;
                 
                 if (editMode) {
                     const ctrl = document.createElement('div');
                     ctrl.className = "edit-controls";
                     ctrl.innerHTML = `
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'x',-0.5)">⬅️</button>
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'x',0.5)">➡️</button>
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'w',1)">寬+</button>
-                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'h',1)">高+</button>
-                        <button class="edit-btn text-blue-500" onclick="event.stopPropagation();adjust(${i},'angle',5)">🔄</button>
-                        <button class="edit-btn text-green-600" onclick="event.stopPropagation();saveB()">💾</button>
-                        <button class="edit-btn text-red-600" onclick="event.stopPropagation();delB(${i})">🗑️</button>
+                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'x',-0.2)">⬅️</button>
+                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'x',0.2)">➡️</button>
+                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'w',0.5)">寬</button>
+                        <button class="edit-btn" onclick="event.stopPropagation();adjust(${i},'h',0.5)">高</button>
+                        <button class="edit-btn text-blue-500" onclick="event.stopPropagation();adjust(${i},'angle',2)">🔄 旋轉</button>
+                        <button class="edit-btn text-green-600" onclick="event.stopPropagation();saveData()">💾 存檔</button>
                     `;
                     el.appendChild(ctrl);
                 }
@@ -302,36 +145,7 @@
             });
         }
 
-        function renderPins() {
-            const layer = document.getElementById('pins-layer'); layer.innerHTML = '';
-            reports.forEach(i => {
-                const p = document.createElement('div'); p.className = 'floating-pin';
-                p.style.left = `${i.x}%`; p.style.top = `${i.y}%`;
-                p.innerHTML = `<div class="pin-dot ${i.type === 'found' ? 'bg-indigo-600' : 'bg-red-500'}"></div>`;
-                p.onclick = (e) => { e.stopPropagation(); openDetail(i.id); };
-                layer.appendChild(p);
-            });
-        }
-
-        function renderList() {
-            document.getElementById('items-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => `
-                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 cursor-pointer shadow-sm">
-                    <div class="font-bold text-sm text-slate-700 truncate">${i.name}</div>
-                </div>`).join('');
-        }
-
-        window.previewImage = (input) => {
-            const f = input.files[0]; if(!f) return;
-            const r = new FileReader(); r.onload = e => { 
-                document.getElementById('img-preview').src = e.target.result; 
-                document.getElementById('preview-container').classList.remove('hidden'); 
-                document.getElementById('upload-placeholder').classList.add('hidden'); 
-            };
-            r.readAsDataURL(f);
-        };
-
-        window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
-        window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
+        onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
     </script>
 </body>
 </html>
