@@ -18,19 +18,10 @@
         #shapes-layer { z-index: 80; }
         #pins-layer { z-index: 90; }
         .building-shape { position: absolute; transform-origin: center; pointer-events: auto; background: transparent; }
-        
-        /* 形狀預覽支援 */
         .s-triangle { clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
         .s-ellipse { border-radius: 50%; }
-
-        .floating-pin { 
-            position: absolute; transform: translate(-50%, -50%); 
-            cursor: pointer; pointer-events: auto; z-index: 100;
-        }
-        .pin-dot {
-            width: 16px; height: 16px; border-radius: 50%; border: 2px solid white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2); animation: pulse 2s infinite;
-        }
+        .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; z-index: 100; }
+        .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.2); animation: pulse 2s infinite; }
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0.4); transform: scale(1); }
             70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); transform: scale(1.1); }
@@ -110,19 +101,16 @@
             <div class="p-6 overflow-y-auto">
                 <h2 id="detail-name" class="text-2xl font-black text-slate-800">物品名稱</h2>
                 <p id="detail-loc" class="text-slate-400 font-bold text-sm mb-4">📍 位置</p>
-                
                 <div class="space-y-3 mb-6">
                     <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500">
-                        <p class="text-[9px] text-slate-400 font-black uppercase">Exact Location / 具體位置</p>
+                        <p class="text-[9px] text-slate-400 font-black">具體位置</p>
                         <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
                     </div>
-
-                    <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-amber-400">
-                        <p class="text-[9px] text-slate-400 font-black uppercase">Description / 詳細描述</p>
+                    <div class="bg-amber-50 rounded-xl p-3 border-l-4 border-amber-400">
+                        <p class="text-[9px] text-slate-400 font-black">詳細描述</p>
                         <p id="detail-desc" class="font-bold text-sm text-slate-700"></p>
                     </div>
                 </div>
-
                 <div class="flex gap-2 text-sm">
                     <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl hover:bg-emerald-600 transition">是我的！</button>
                     <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
@@ -152,14 +140,12 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 核心幾何判定函數 ---
         function isPointInShape(px, py, box) {
             const angleRad = (box.angle || 0) * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
             const dx = px - cx, dy = py - cy;
             const rx = dx * Math.cos(-angleRad) - dy * Math.sin(-angleRad);
             const ry = dx * Math.sin(-angleRad) + dy * Math.cos(-angleRad);
-
             if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
             if (box.type === 'ellipse') return (rx*rx)/((box.w/2)**2) + (ry*ry)/((box.h/2)**2) <= 1;
             if (box.type === 'triangle') {
@@ -191,7 +177,6 @@
             document.getElementById('report-modal').classList.remove('hidden');
         };
 
-        // --- Firebase 監聽 ---
         onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
         onSnapshot(LOST_COLL, (s) => { 
             reports = s.docs.map(d => ({ id: d.id, ...d.data() })); 
@@ -207,7 +192,6 @@
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
-        // --- 提交邏輯 (包含描述) ---
         document.getElementById('btn-submit').onclick = async () => {
             const nick = document.getElementById('in-nick').value.trim();
             const item = document.getElementById('in-item').value.trim();
@@ -222,29 +206,30 @@
                 await setDoc(doc(LOST_COLL), { 
                     type: currentTab, name: item, finder: nick, 
                     floor_info: floor,
-                    description: desc, // 新增描述欄位
+                    description: desc,
                     location: document.getElementById('location-name').innerText.replace('📍 ',''),
                     imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
                     x: clickPos.x, y: clickPos.y, time: Date.now() 
                 });
                 if(currentTab === 'found') await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
                 closeModals();
-            } catch (err) { alert("發送失敗，請重試"); }
-          finally { 
-    btn.innerText = currentTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
-}；
-        // --- 開啟詳情 (渲染描述) ---
+            } catch (err) { 
+                alert("發送失敗，請重試"); 
+            } finally { 
+                btn.disabled = false;
+                btn.innerText = currentTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
+            }
+        };
+
         window.openDetail = (id) => {
             const item = reports.find(i => i.id === id); if(!item) return;
             const tag = document.getElementById('type-tag');
             tag.innerText = item.type === 'found' ? '拾獲物' : '協尋中';
             tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 ${item.type==='found'?'bg-indigo-600':'bg-red-500'}`;
-            
             document.getElementById('detail-name').innerText = item.name;
             document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
             document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供具體位置";
             document.getElementById('detail-desc').innerText = item.description || "無額外描述內容";
-            
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
             if(item.imageUrl && item.imageUrl.length > 10) { 
                 img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); 
