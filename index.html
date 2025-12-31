@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTCU 互助會</title>
+    <title>NTCU 互助會 (管理者模式)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -37,7 +37,7 @@
         <header class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-black text-slate-800">💎 NTCU 一丟一撿</h1>
-                <p class="text-slate-500 text-sm">點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
+                <p id="mode-indicator" class="text-slate-500 text-sm">點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
             </div>
             <div class="bg-white p-3 px-6 rounded-3xl shadow-sm border border-slate-100">
                 <span class="text-[9px] font-black text-slate-400 block text-right">TOP HERO</span>
@@ -121,7 +121,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
@@ -139,8 +139,9 @@
         const CAMPUS_DOC = doc(db, "campus_data", "NTCU-CAMPUS-V2");
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
+        let editMode = false;
 
-        // --- 核心幾何 (修正三角形判定：專為 90 度旋轉優化) ---
+        // --- 核心幾何 ---
         function isPointInShape(px, py, box) {
             const angleRad = (box.angle || 0) * Math.PI / 180;
             const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
@@ -151,41 +152,43 @@
             if (box.type === 'rect') return Math.abs(rx) <= box.w/2 && Math.abs(ry) <= box.h/2;
             if (box.type === 'ellipse') return (rx*rx)/((box.w/2)**2) + (ry*ry)/((box.h/2)**2) <= 1;
             if (box.type === 'triangle') {
-                // 定義頂點 (尖端朝上)
-                const x1 = 0,          y1 = -box.h / 2; 
-                const x2 = -box.w / 2, y2 = box.h / 2;  
-                const x3 = box.w / 2,  y3 = box.h / 2;  
-                
-                const getArea = (xa, ya, xb, yb, xc, yc) => 
-                    Math.abs((xa * (yb - yc) + xb * (yc - ya) + xc * (ya - yb)) / 2.0);
-                
-                const area = getArea(x1, y1, x2, y2, x3, y3);
-                const a1 = getArea(rx, ry, x1, y1, x2, y2);
-                const a2 = getArea(rx, ry, x2, y2, x3, y3);
-                const a3 = getArea(rx, ry, x3, y3, x1, y1);
-                
-                // 提高容錯率至 2.5 以處理環境樓 90.3 度旋轉後的像素偏移
+                const x1 = 0, y1 = -box.h/2, x2 = -box.w/2, y2 = box.h/2, x3 = box.w/2, y3 = box.h/2;
+                const getArea = (xa, ya, xb, yb, xc, yc) => Math.abs((xa*(yb-yc) + xb*(yc-ya) + xc*(ya-yb))/2.0);
+                const area = getArea(x1,y1,x2,y2,x3,y3);
+                const a1 = getArea(rx,ry,x1,y1,x2,y2), a2 = getArea(rx,ry,x2,y2,x3,y3), a3 = getArea(rx,ry,x3,y3,x1,y1);
                 return Math.abs(area - (a1 + a2 + a3)) < 2.5;
-            }
-            if (box.type === 'capsule') {
-                const r = Math.min(box.w, box.h) / 2;
-                if (box.w >= box.h) {
-                    const d = (box.w - box.h) / 2;
-                    if (Math.abs(ry) <= r && Math.abs(rx) <= d) return true;
-                    return Math.sqrt((Math.abs(rx) - d)**2 + ry**2) <= r;
-                } else {
-                    const d = (box.h - box.w) / 2;
-                    if (Math.abs(rx) <= r && Math.abs(ry) <= d) return true;
-                    return Math.sqrt(rx**2 + (Math.abs(ry) - d)**2) <= r;
-                }
             }
             return false;
         }
 
-        window.handleMapClick = (e) => {
+        // --- 管理員連點三下功能 ---
+        window.addEventListener('click', (e) => {
+            if (e.detail === 3) {
+                editMode = !editMode;
+                document.getElementById('mode-indicator').innerHTML = editMode ? 
+                    '<b class="text-red-600 animate-pulse">🛠 編輯模式開啟：點擊紅框建築可刪除</b>' : 
+                    '點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span>';
+                renderShapes();
+            }
+        });
+
+        window.handleMapClick = async (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
-            let hit = buildings.find(b => isPointInShape(clickPos.x, clickPos.y, b));
+            
+            let hitIndex = buildings.findIndex(b => isPointInShape(clickPos.x, clickPos.y, b));
+
+            if (editMode && hitIndex !== -1) {
+                const target = buildings[hitIndex];
+                if (confirm(`確定要刪除建築物「${target.name}」嗎？此操作不可逆！`)) {
+                    buildings.splice(hitIndex, 1);
+                    await updateDoc(CAMPUS_DOC, { buildings: buildings });
+                    renderShapes();
+                }
+                return;
+            }
+
+            let hit = buildings[hitIndex];
             document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
             document.getElementById('report-modal').classList.remove('hidden');
             const btn = document.getElementById('btn-submit');
@@ -202,6 +205,7 @@
             btn.className = `w-full py-4 text-white font-black rounded-2xl shadow-lg transition ${t==='found'?'bg-indigo-600':'bg-red-500'}`;
         };
 
+        // --- Firebase 即時監聽 ---
         onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
         onSnapshot(LOST_COLL, (s) => { 
             reports = s.docs.map(d => ({ id: d.id, ...d.data() })); 
@@ -217,6 +221,7 @@
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
+        // --- 功能函式 ---
         document.getElementById('btn-submit').onclick = async () => {
             const nick = document.getElementById('in-nick').value.trim();
             const item = document.getElementById('in-item').value.trim();
@@ -237,12 +242,8 @@
                 });
                 if(currentTab === 'found') await setDoc(doc(USER_COLL, nick), { merit: increment(50) }, { merge: true });
                 closeModals();
-            } catch (err) { 
-                alert("噢不！發生了網路錯誤，請再試一次"); 
-            } finally { 
-                btn.disabled = false;
-                btn.innerText = currentTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
-            }
+            } catch (err) { alert("發生網路錯誤，請再試一次"); } 
+            finally { btn.disabled = false; btn.innerText = "確認標註"; }
         };
 
         window.openDetail = (id) => {
@@ -257,9 +258,7 @@
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
             if(item.imageUrl && item.imageUrl.length > 50) { 
                 img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); 
-            } else { 
-                img.classList.add('hidden'); ph.classList.remove('hidden'); 
-            }
+            } else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
             document.getElementById('btn-claim-now').onclick = () => claimItem(item.id, item.finder, item.type);
             document.getElementById('detail-modal').classList.remove('hidden');
         };
@@ -275,8 +274,10 @@
         function renderShapes() {
             const layer = document.getElementById('shapes-layer'); layer.innerHTML = '';
             buildings.forEach(b => {
-                const el = document.createElement('div'); el.className = `building-shape s-${b.type}`;
-                el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle||0}deg);`;
+                const el = document.createElement('div');
+                el.className = `building-shape s-${b.type}`;
+                const debugStyle = editMode ? `border: 2px solid red; background: rgba(255,0,0,0.2);` : '';
+                el.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle||0}deg); ${debugStyle}`;
                 layer.appendChild(el);
             });
         }
@@ -286,8 +287,7 @@
             reports.forEach(i => {
                 const p = document.createElement('div'); p.className = 'floating-pin';
                 p.style.left = `${i.x}%`; p.style.top = `${i.y}%`;
-                const dotColor = i.type === 'found' ? 'bg-indigo-600' : 'bg-red-500';
-                p.innerHTML = `<div class="pin-dot ${dotColor}"></div>`;
+                p.innerHTML = `<div class="pin-dot ${i.type === 'found' ? 'bg-indigo-600' : 'bg-red-500'}"></div>`;
                 p.onclick = (e) => { e.stopPropagation(); openDetail(i.id); };
                 layer.appendChild(p);
             });
@@ -301,7 +301,7 @@
                     </div>
                     <div class="flex-1 truncate text-left">
                         <div class="font-bold text-sm text-slate-700">${i.name}</div>
-                        <div class="text-[9px] text-slate-400 italic">${i.description ? i.description.substring(0,10)+'...' : '📍 '+i.location}</div>
+                        <div class="text-[9px] text-slate-400 italic">${i.location}</div>
                     </div>
                 </div>`).join('');
         }
@@ -319,12 +319,10 @@
 
         window.closeModals = () => {
             document.getElementById('report-modal').classList.add('hidden');
-            document.getElementById('in-item').value = '';
-            document.getElementById('in-floor').value = '';
-            document.getElementById('in-desc').value = '';
+            document.getElementById('in-item').value = ''; document.getElementById('in-floor').value = '';
+            document.getElementById('in-desc').value = ''; document.getElementById('img-preview').src = '';
             document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('upload-placeholder').classList.remove('hidden');
-            document.getElementById('img-preview').src = '';
         };
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
