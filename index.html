@@ -117,7 +117,7 @@
                         <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
                     </div>
 
-                    <div class="bg-amber-50 rounded-xl p-3 border-l-4 border-amber-400">
+                    <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-amber-400">
                         <p class="text-[9px] text-amber-500 font-black uppercase">Description / 詳細描述</p>
                         <p id="detail-desc" class="font-bold text-sm text-slate-700"></p>
                     </div>
@@ -256,7 +256,7 @@
         };
 
         window.claimItem = async (id, f, type) => {
-            if(confirm('確認此物品已處理完成（已領回或已撤銷）？')) {
+            if(confirm('確認是你的齁？')) {
                 await deleteDoc(doc(db, "all_reports_v3", id));
                 if(type === 'found') await setDoc(doc(USER_COLL, f), { merit: increment(20) }, { merge: true });
                 closeDetail();
