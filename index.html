@@ -232,7 +232,7 @@
             } catch (err) { alert("發送失敗，請重試"); }
           finally { 
     btn.innerText = currentTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
-}
+}；
         // --- 開啟詳情 (渲染描述) ---
         window.openDetail = (id) => {
             const item = reports.find(i => i.id === id); if(!item) return;
