@@ -3,22 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTCU 互助會</title>
+    <title>NTCU 互助會 - 三角形強化版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
+        body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; overflow-x: hidden; }
         .map-container {
             position: relative; width: 100%; height: 600px;
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
             border-radius: 2.5rem; border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-            overflow: hidden; cursor: crosshair;
+            overflow: visible; cursor: crosshair; touch-action: none;
         }
         #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
-        #shapes-layer { z-index: 10; opacity: 0; } /* 設為 0，完全隱藏感應框 */
-        #pins-layer { z-index: 20; }
-        .building-shape { position: absolute; background: transparent; } /* 透明感應 */
-        .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
+        #shapes-layer { z-index: 80; }
+        #pins-layer { z-index: 90; }
+        
+        /* 形狀基礎 */
+        .building-shape { position: absolute; transform-origin: center; pointer-events: auto; }
+        /* 僅環境樓裁切 */
+        .is-triangle { 
+            clip-path: polygon(0% 0%, 0% 100%, 100% 100%); 
+            -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%);
+        }
+
+        /* 編輯器 UI */
+        .transformer { position: absolute; border: 2px dashed #6366f1; pointer-events: none; z-index: 1000; transform-origin: center; }
+        .handle { position: absolute; width: 14px; height: 14px; background: white; border: 2px solid #6366f1; border-radius: 50%; pointer-events: auto; }
+        .rotate-handle { top: -30px; left: 50%; transform: translateX(-50%); background: #6366f1; cursor: grab; }
+        .resize-handle { bottom: -7px; right: -7px; cursor: nwse-resize; }
+        .save-panel {
+            position: absolute; bottom: -60px; left: 50%; transform: translateX(-50%);
+            background: #10b981; color: white; padding: 10px 24px; border-radius: 99px;
+            font-weight: 900; cursor: pointer; z-index: 1001; box-shadow: 0 10px 15px rgba(16,185,129,0.3);
+        }
+
+        .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; z-index: 100; }
         .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.2); animation: pulse 2s infinite; }
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0.4); transform: scale(1); }
@@ -35,7 +54,7 @@
         <header class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-black text-slate-800">💎 NTCU 一丟一撿</h1>
-                <p class="text-slate-500 text-sm">點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
+                <p id="mode-desc" class="text-slate-500 text-sm">點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
             </div>
             <div class="bg-white p-3 px-6 rounded-3xl shadow-sm border border-slate-100 text-right">
                 <span class="text-[9px] font-black text-slate-400 block">TOP HERO</span>
@@ -45,14 +64,20 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div class="lg:col-span-8">
-                <div id="map-root" class="map-container" onclick="handleMapClick(event)">
+                <div id="map-root" class="map-container" onmousedown="handleMouseDown(event)">
                     <div id="shapes-layer"></div>
                     <div id="pins-layer"></div>
+                    <div id="transformer" class="transformer hidden">
+                        <div class="handle rotate-handle" onmousedown="startRotate(event)"></div>
+                        <div class="handle resize-handle" onmousedown="startResize(event)"></div>
+                        <div class="save-panel" onclick="saveToFirebase()">儲存地圖配置 💾</div>
+                    </div>
                 </div>
+                <p id="edit-hint" class="hidden mt-4 text-center text-red-500 font-bold">🛠 編輯模式：拖曳移動、圓點縮放旋轉（僅限環境樓）</p>
             </div>
             <div class="lg:col-span-4 flex flex-col gap-6">
                 <div class="bg-indigo-600 rounded-[2.5rem] p-6 text-white shadow-xl">
-                    <h3 class="font-bold mb-4 text-sm flex items-center gap-2">🏆 功德榜</h3>
+                    <h3 class="font-bold mb-4 text-sm">🏆 功德榜</h3>
                     <div id="leaderboard" class="space-y-3 text-xs"></div>
                 </div>
                 <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
@@ -77,7 +102,7 @@
                 <input type="text" id="in-nick" placeholder="暱稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <input type="text" id="in-desc" placeholder="詳細描述 (顏色特徵、外觀)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-desc" placeholder="詳細描述" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer text-center" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-24 object-cover"></div>
@@ -136,37 +161,112 @@
         const USER_COLL = collection(db, "users_v2");
         const CAMPUS_DOC = doc(db, "campus_data", "NTCU-CAMPUS-V2");
 
-        let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
+        let currentTab = 'found', buildings = [], reports = [], editMode = false, selectedIdx = -1, clickPos = {x:50,y:50};
+        let isDragging = false, isResizing = false, isRotating = false;
+        let startX, startY, startW, startH, startAngle, centerX, centerY;
 
-        function isPointInRect(px, py, rect) {
-            return px >= rect.x && px <= rect.x + rect.w && py >= rect.y && py <= rect.y + rect.h;
+        // 智慧判定函式
+        function checkHit(px, py, b) {
+            if (b.name === "環境樓") {
+                const rad = (b.angle || 0) * Math.PI / 180;
+                const cx = b.x + b.w/2, cy = b.y + b.h/2;
+                const dx = px - cx, dy = py - cy;
+                const rx = dx * Math.cos(-rad) - dy * Math.sin(-rad);
+                const ry = dx * Math.sin(-rad) + dy * Math.cos(-rad);
+                const x1 = -b.w/2, y1 = -b.h/2, x2 = -b.w/2, y2 = b.h/2, x3 = b.w/2, y3 = b.h/2;
+                const getArea = (xa,ya,xb,yb,xc,yc) => Math.abs((xa*(yb-yc)+xb*(yc-ya)+xc*(ya-yb))/2);
+                const total = getArea(x1,y1,x2,y2,x3,y3);
+                return Math.abs(total - (getArea(rx,ry,x1,y1,x2,y2) + getArea(rx,ry,x2,y2,x3,y3) + getArea(rx,ry,x3,y3,x1,y1))) < 1.0;
+            }
+            return px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h;
         }
 
-        // 監聽並建立隱形感應層
-        onSnapshot(CAMPUS_DOC, (snap) => {
-            if (snap.exists()) {
-                buildings = snap.data().buildings || [];
-                const layer = document.getElementById('shapes-layer');
-                layer.innerHTML = buildings.map(b => 
-                    `<div class="building-shape" style="left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%;"></div>`
-                ).join('');
+        // 監聽三連擊開啟編輯
+        window.addEventListener('click', (e) => {
+            if (e.detail === 3) {
+                editMode = !editMode;
+                document.getElementById('edit-hint').classList.toggle('hidden');
+                selectedIdx = -1; updateTransformer(); renderShapes();
             }
         });
 
-        window.handleMapClick = (e) => {
+        window.handleMouseDown = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
-            clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
-            const hit = buildings.find(b => isPointInRect(clickPos.x, clickPos.y, b));
-            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
-            document.getElementById('report-modal').classList.remove('hidden');
+            const px = ((e.clientX - r.left) / r.width) * 100;
+            const py = ((e.clientY - r.top) / r.height) * 100;
+            const hitIdx = buildings.findIndex(b => checkHit(px, py, b));
+
+            if (editMode && hitIdx !== -1 && buildings[hitIdx].name === "環境樓") {
+                selectedIdx = hitIdx; isDragging = true;
+                startX = e.clientX; startY = e.clientY;
+                updateTransformer();
+            } else if (!editMode) {
+                clickPos = { x: px, y: py };
+                const hit = buildings[hitIdx];
+                document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
+                document.getElementById('report-modal').classList.remove('hidden');
+            }
         };
 
-        onSnapshot(LOST_COLL, (s) => {
-            reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
-            document.getElementById('items-count').innerText = reports.length;
-            renderPins(); renderList();
-        });
+        window.startResize = (e) => { e.stopPropagation(); isResizing = true; startX = e.clientX; startY = e.clientY; startW = buildings[selectedIdx].w; startH = buildings[selectedIdx].h; };
+        window.startRotate = (e) => {
+            e.stopPropagation(); isRotating = true;
+            const r = document.getElementById('map-root').getBoundingClientRect();
+            const b = buildings[selectedIdx];
+            centerX = (b.x + b.w/2) * r.width / 100 + r.left;
+            centerY = (b.y + b.h/2) * r.height / 100 + r.top;
+            startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI - (b.angle || 0);
+        };
 
+        window.onmousemove = (e) => {
+            if (selectedIdx === -1 || !editMode) return;
+            const b = buildings[selectedIdx];
+            const r = document.getElementById('map-root').getBoundingClientRect();
+            if (isDragging) {
+                b.x += ((e.clientX - startX) / r.width) * 100;
+                b.y += ((e.clientY - startY) / r.height) * 100;
+                startX = e.clientX; startY = e.clientY;
+            } else if (isResizing) {
+                b.w = Math.max(2, startW + ((e.clientX - startX) / r.width) * 100);
+                b.h = Math.max(2, startH + ((e.clientY - startY) / r.height) * 100);
+            } else if (isRotating) {
+                b.angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI - startAngle;
+            }
+            if (isDragging || isResizing || isRotating) { updateTransformer(); renderShapes(); }
+        };
+
+        window.onmouseup = () => { isDragging = isResizing = isRotating = false; };
+
+        function updateTransformer() {
+            const tf = document.getElementById('transformer');
+            if (selectedIdx === -1) { tf.classList.add('hidden'); return; }
+            const b = buildings[selectedIdx];
+            tf.classList.remove('hidden');
+            tf.style.cssText = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg);`;
+        }
+
+        function renderShapes() {
+            const layer = document.getElementById('shapes-layer');
+            layer.style.opacity = editMode ? "1" : "0";
+            layer.innerHTML = buildings.map(b => {
+                const isTri = b.name === "環境樓";
+                const style = `left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg); ${editMode ? 'border:1px solid red; background:rgba(255,0,0,0.1);' : ''}`;
+                return `<div class="building-shape ${isTri ? 'is-triangle' : ''}" style="${style}"></div>`;
+            }).join('');
+        }
+
+        window.saveToFirebase = async () => {
+            await updateDoc(CAMPUS_DOC, { buildings });
+            alert("✅ 環境樓配置已更新儲存！");
+        };
+
+        // --- Firebase 原有邏輯 ---
+        onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) { buildings = snap.data().buildings || []; renderShapes(); } });
+        onSnapshot(LOST_COLL, (s) => { 
+            reports = s.docs.map(d => ({ id: d.id, ...d.data() })); 
+            document.getElementById('items-count').innerText = reports.length;
+            renderPins(); renderList(); 
+        });
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
                 <div class="flex justify-between items-center p-2 bg-white/10 rounded-xl text-[11px]">
@@ -185,20 +285,16 @@
         };
 
         document.getElementById('submit-btn').onclick = async () => {
-            const nick = document.getElementById('in-nick').value.trim();
-            const item = document.getElementById('in-item').value.trim();
-            if(!nick || !item) return alert("請填寫必填欄位！");
-            await setDoc(doc(LOST_COLL), {
-                type: currentTab, name: item, finder: nick,
-                floor_info: document.getElementById('in-floor').value,
-                description: document.getElementById('in-desc').value,
+            const nick = document.getElementById('in-nick').value.trim(), item = document.getElementById('in-item').value.trim();
+            if(!nick || !item) return alert("必填！");
+            await setDoc(doc(LOST_COLL), { 
+                type: currentTab, name: item, finder: nick, 
+                floor_info: document.getElementById('in-floor').value, description: document.getElementById('in-desc').value,
                 location: document.getElementById('location-name').innerText.replace('📍 ',''),
                 imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
-                x: clickPos.x, y: clickPos.y, time: Date.now()
+                x: clickPos.x, y: clickPos.y, time: Date.now() 
             });
-            if(currentTab === 'found') await updateDoc(doc(USER_COLL, nick), { merit: increment(50) }).catch(async () => {
-                await setDoc(doc(USER_COLL, nick), { merit: 50 });
-            });
+            if(currentTab === 'found') await updateDoc(doc(USER_COLL, nick), { merit: increment(50) }).catch(async () => { await setDoc(doc(USER_COLL, nick), { merit: 50 }); });
             closeModals();
         };
 
@@ -214,9 +310,7 @@
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
             if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
             else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
-            document.getElementById('btn-claim-now').onclick = async () => {
-                if(confirm('確認領回了嗎？')){ await deleteDoc(doc(db, "all_reports_v3", id)); closeDetail(); }
-            };
+            document.getElementById('btn-claim-now').onclick = async () => { if(confirm('確認領回？')){ await deleteDoc(doc(db, "all_reports_v3", id)); closeDetail(); } };
             document.getElementById('detail-modal').classList.remove('hidden');
         };
 
@@ -243,14 +337,13 @@
 
         window.previewImage = (input) => {
             const f = input.files[0]; if(!f) return;
-            const r = new FileReader(); r.onload = e => {
-                document.getElementById('img-preview').src = e.target.result;
-                document.getElementById('preview-container').classList.remove('hidden');
-                document.getElementById('upload-placeholder').classList.add('hidden');
+            const r = new FileReader(); r.onload = e => { 
+                document.getElementById('img-preview').src = e.target.result; 
+                document.getElementById('preview-container').classList.remove('hidden'); 
+                document.getElementById('upload-placeholder').classList.add('hidden'); 
             };
             r.readAsDataURL(f);
         };
-
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
