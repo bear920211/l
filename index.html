@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTCU 互助會 (管理者模式)</title>
+    <title>NTCU 互助會</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -15,9 +15,9 @@
             overflow: hidden; cursor: crosshair;
         }
         #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
-        #shapes-layer { z-index: 10; opacity: 0.2; }
+        #shapes-layer { z-index: 10; opacity: 0; } /* 設為 0，完全隱藏感應框 */
         #pins-layer { z-index: 20; }
-        .building-shape { position: absolute; background: rgba(239, 68, 68, 0.4); border: 2px solid #ef4444; }
+        .building-shape { position: absolute; background: transparent; } /* 透明感應 */
         .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
         .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.2); animation: pulse 2s infinite; }
         @keyframes pulse {
@@ -138,10 +138,20 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // 判定點擊區域
         function isPointInRect(px, py, rect) {
             return px >= rect.x && px <= rect.x + rect.w && py >= rect.y && py <= rect.y + rect.h;
         }
+
+        // 監聽並建立隱形感應層
+        onSnapshot(CAMPUS_DOC, (snap) => {
+            if (snap.exists()) {
+                buildings = snap.data().buildings || [];
+                const layer = document.getElementById('shapes-layer');
+                layer.innerHTML = buildings.map(b => 
+                    `<div class="building-shape" style="left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%;"></div>`
+                ).join('');
+            }
+        });
 
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
@@ -151,23 +161,12 @@
             document.getElementById('report-modal').classList.remove('hidden');
         };
 
-        // 監聽建築資料
-        onSnapshot(CAMPUS_DOC, (snap) => {
-            if (snap.exists()) {
-                buildings = snap.data().buildings || [];
-                const layer = document.getElementById('shapes-layer');
-                layer.innerHTML = buildings.map(b => `<div class="building-shape" style="left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%;"></div>`).join('');
-            }
-        });
-
-        // 監聽遺失物品
         onSnapshot(LOST_COLL, (s) => {
             reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
             document.getElementById('items-count').innerText = reports.length;
             renderPins(); renderList();
         });
 
-        // 監聽功德榜
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
                 <div class="flex justify-between items-center p-2 bg-white/10 rounded-xl text-[11px]">
@@ -252,12 +251,7 @@
             r.readAsDataURL(f);
         };
 
-        window.closeModals = () => {
-            document.getElementById('report-modal').classList.add('hidden');
-            document.getElementById('img-preview').src = "";
-            document.getElementById('preview-container').classList.add('hidden');
-            document.getElementById('upload-placeholder').classList.remove('hidden');
-        };
+        window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
 </body>
