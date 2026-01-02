@@ -36,14 +36,16 @@
 <body class="p-4 md:p-8">
 
     <div class="max-w-6xl mx-auto">
-        <header class="flex justify-between items-end mb-8">
-            <div>
-                <h1 class="text-xl font-black text-slate-800">💎 NTCU 一丟一撿</h1>
-                <p class="text-slate-500 text-[10px]">點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
+        <header class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end mb-8">
+            <div class="lg:col-span-8">
+                <h1 class="text-2xl font-black text-slate-800 tracking-tight">NTCU 一丟一撿</h1>
+                <p class="text-slate-500 text-[10px] mt-1">點擊地圖標註：<span class="text-indigo-600 font-bold">藍色拾獲</span> / <span class="text-red-500 font-bold">紅色遺失</span></p>
             </div>
-            <div class="bg-white p-4 px-8 rounded-[2rem] shadow-md border-2 border-indigo-100 text-right min-w-[180px]">
-                <span class="text-[9px] font-black text-slate-400 block tracking-[0.2em] mb-1">TOP HERO</span>
-                <span id="top-hero-name" class="text-2xl font-black text-indigo-600 drop-shadow-sm">載入中...</span>
+            <div class="lg:col-span-4">
+                <div class="bg-white p-5 px-8 rounded-[2.5rem] shadow-md border-2 border-indigo-100 text-center lg:text-right w-full">
+                    <span class="text-[9px] font-black text-slate-400 block tracking-[0.2em] mb-1">TOP HERO</span>
+                    <span id="top-hero-name" class="text-2xl font-black text-indigo-600 drop-shadow-sm truncate block">載入中...</span>
+                </div>
             </div>
         </header>
 
@@ -237,14 +239,13 @@
         window.openDetail = (id) => {
             const item = reports.find(i => i.id === id); if(!item) return;
             const tag = document.getElementById('type-tag'), claimBtn = document.getElementById('btn-claim-now');
-            
             tag.innerText = item.type === 'found' ? '拾獲物' : '協尋中';
             tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 ${item.type==='found'?'bg-indigo-600':'bg-red-500'}`;
             claimBtn.innerText = item.type === 'found' ? '確定認領' : '找到了';
             
             document.getElementById('detail-name').innerText = item.name;
             document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
-            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供具體位置";
+            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供位置";
             document.getElementById('detail-finder').innerText = item.finder || "匿名英雄";
             document.getElementById('detail-desc').innerText = item.description || "無描述。";
             
