@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTCU 互助會</title>
+    <title>NTCU 一丟一撿</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
@@ -37,14 +37,14 @@
 
     <div class="max-w-6xl mx-auto">
         <header class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end mb-10">
-            <div class="lg:col-span-8">
+            <div class="lg:col-span-8 text-left">
                 <h1 class="text-4xl font-[900] text-slate-800 tracking-tighter mb-2">NTCU 一丟一撿</h1>
                 <p class="text-slate-600 text-lg font-medium pl-1">
                     點擊地圖標註：<span class="text-indigo-600 font-black">藍色拾獲</span> / <span class="text-red-500 font-black">紅色遺失</span>
                 </p>
             </div>
             <div class="lg:col-span-4">
-                <div class="bg-white p-5 px-8 rounded-[2.5rem] shadow-md border-2 border-indigo-100 text-center lg:text-right w-full">
+                <div class="bg-white p-5 px-6 rounded-[2.5rem] shadow-md border-2 border-indigo-100 text-left w-full">
                     <span class="text-[10px] font-black text-slate-400 block tracking-[0.2em] mb-1">TOP HERO</span>
                     <span id="top-hero-name" class="text-2xl font-black text-indigo-600 drop-shadow-sm truncate block">載入中...</span>
                 </div>
@@ -263,8 +263,6 @@
                             setDoc(doc(USER_COLL, item.finder), { merit: 20 });
                         });
                         alert(`認領完成！已發放 20 功德給好心人：${item.finder}`);
-                    } else {
-                        alert(`太棒了！很高興幫您找回物品 ✨`);
                     }
                     await deleteDoc(doc(db, "all_reports_v3", id));
                     location.reload(); 
@@ -287,7 +285,7 @@
         function renderList() {
             document.getElementById('items-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => `
                 <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 cursor-pointer shadow-sm">
-                    <div class="w-10 h-10 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden">
+                    <div class="w-10 h-10 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden text-xs">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '🎁'}
                     </div>
                     <div class="flex-1 truncate text-left font-bold text-sm text-slate-700">${i.name}<div class="text-[9px] text-slate-400 italic">${i.location}</div></div>
