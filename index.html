@@ -105,7 +105,10 @@
             </div>
             <div class="p-6 overflow-y-auto text-left">
                 <h2 id="detail-name" class="text-2xl font-black text-slate-800 line-clamp-1">物品名稱</h2>
-                <p id="detail-loc" class="text-slate-400 font-bold text-sm mb-4 truncate"></p>
+                <div class="flex justify-between items-center mb-4">
+                    <p id="detail-loc" class="text-slate-400 font-bold text-sm truncate"></p>
+                    <span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-lg text-slate-500 font-bold">由 <span id="detail-finder"></span> 提供</span>
+                </div>
                 <div class="space-y-3 mb-6">
                     <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500">
                         <p class="text-[9px] text-slate-400 font-black">具體位置</p>
@@ -145,7 +148,7 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 重點修正：支援旋轉三角形的感應邏輯 ---
+        // --- 旋轉三角形感應邏輯 ---
         function checkHit(px, py, b) {
             if (b.name === "環境樓") {
                 const rad = (b.angle || 0) * Math.PI / 180;
@@ -166,7 +169,6 @@
             if (snap.exists()) {
                 buildings = snap.data().buildings || [];
                 const layer = document.getElementById('shapes-layer');
-                // --- 重點修正：顯示加入旋轉角度與三角形裁切 ---
                 layer.innerHTML = buildings.map(b => {
                     const isTri = (b.name === "環境樓");
                     const triStyle = isTri ? `clip-path:polygon(0% 0%, 0% 100%, 100% 100%); -webkit-clip-path:polygon(0% 0%, 0% 100%, 100% 100%);` : '';
@@ -178,13 +180,11 @@
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
-            // --- 改用新的判定邏輯 ---
             const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
             document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
             document.getElementById('report-modal').classList.remove('hidden');
         };
 
-        // 以下功能完全維持原本代碼
         onSnapshot(LOST_COLL, (s) => {
             reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
             document.getElementById('items-count').innerText = reports.length;
@@ -226,20 +226,30 @@
             closeModals();
         };
 
+        // --- 增強版的詳情開啟功能 ---
         window.openDetail = (id) => {
             const item = reports.find(i => i.id === id); if(!item) return;
-            const tag = document.getElementById('type-tag');
+            const tag = document.getElementById('type-tag'), claimBtn = document.getElementById('btn-claim-now');
+            
             tag.innerText = item.type === 'found' ? '拾獲物' : '協尋中';
             tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 ${item.type==='found'?'bg-indigo-600':'bg-red-500'}`;
+            
+            // 動態切換按鈕文字
+            claimBtn.innerText = item.type === 'found' ? '確定認領' : '找到了';
+            
             document.getElementById('detail-name').innerText = item.name;
             document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
             document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供具體位置";
-            document.getElementById('detail-desc').innerText = item.description || "無額外描述內容";
+            document.getElementById('detail-finder').innerText = item.finder || "匿名英雄"; // 顯示發布者
+            document.getElementById('detail-desc').innerText = item.description || "無描述。";
+            
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
             if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
             else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
-            document.getElementById('btn-claim-now').onclick = async () => {
-                if(confirm('確認領回了嗎？')){ await deleteDoc(doc(db, "all_reports_v3", id)); closeDetail(); }
+            
+            claimBtn.onclick = async () => {
+                const action = item.type === 'found' ? '確認領回了嗎？' : '確認物品已找回？';
+                if(confirm(action)){ await deleteDoc(doc(db, "all_reports_v3", id)); closeDetail(); }
             };
             document.getElementById('detail-modal').classList.remove('hidden');
         };
