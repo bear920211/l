@@ -9,13 +9,25 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* 調整這裡的 flex 比例以縮小灰色空白 */
+        /* 修改：外層負責背景與置中 */
         .map-section { 
             flex: 45; 
             position: relative; 
-            background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center center; 
-            background-size: contain; 
-            cursor: crosshair; 
+            background: #e2e8f0; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* 新增：內層鎖定 1191:855 比例，確保座標與電腦版 100% 同步 */
+        .map-container {
+            width: 100%;
+            aspect-ratio: 1191 / 855;
+            position: relative;
+            background: url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center center;
+            background-size: 100% 100%;
+            cursor: crosshair;
         }
         
         .list-section { 
@@ -53,9 +65,11 @@
         </div>
     </div>
 
-    <div class="map-section" id="map-root" onclick="handleMapClick(event)">
-        <div id="shapes-layer"></div>
-        <div id="pins-layer"></div>
+    <div class="map-section">
+        <div class="map-container" id="map-root" onclick="handleMapClick(event)">
+            <div id="shapes-layer"></div>
+            <div id="pins-layer"></div>
+        </div>
     </div>
 
     <div class="list-section">
@@ -70,7 +84,7 @@
     </div>
 
     <div id="report-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[300] p-6 backdrop-blur-sm">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-6 shadow-2xl text-center">
+        <div class="bg-white rounded-[2.5rem] w-full max-sm p-6 shadow-2xl text-center">
             <div class="flex bg-slate-100 p-1 rounded-2xl mb-4">
                 <button onclick="switchTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-xs tab-active">撿到東西</button>
                 <button onclick="switchTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-xs text-slate-400">遺失物品</button>
@@ -173,6 +187,7 @@
 
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
+            // 座標計算基準現在縮小到 map-container 本身
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
             const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
             document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
@@ -205,14 +220,14 @@
             document.getElementById('tab-found').className = t==='found' ? "flex-1 py-2 rounded-xl font-black text-xs tab-active" : "flex-1 py-2 rounded-xl font-black text-xs text-slate-400";
             document.getElementById('tab-lost').className = t==='lost' ? "flex-1 py-2 rounded-xl font-black text-xs tab-lost-active" : "flex-1 py-2 rounded-xl font-black text-xs text-slate-400";
             const submitBtn = document.getElementById('submit-btn');
-    if (t === 'found') {
-        submitBtn.innerText = "確認標註 (+50 功德)";
-        submitBtn.className = "w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg"; // 變回藍色
-    } else {
-        submitBtn.innerText = "發布求助標記";
-        submitBtn.className = "w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg"; // 變為紅色
-    }
-};
+            if (t === 'found') {
+                submitBtn.innerText = "確認標註 (+50 功德)";
+                submitBtn.className = "w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg"; 
+            } else {
+                submitBtn.innerText = "發布求助標記";
+                submitBtn.className = "w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg"; 
+            }
+        };
 
         document.getElementById('submit-btn').onclick = async () => {
             const nick = document.getElementById('in-nick').value.trim();
