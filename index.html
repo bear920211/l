@@ -2,7 +2,6 @@
 <html lang="zh-TW">
 <head>
     <script>
-    // 設備偵測：如果是手機或平板，自動導向 mobile.html
     if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
         window.location.href = "mobile.html"; 
     }
@@ -88,7 +87,10 @@
             </div>
             <div class="mb-5"><div id="location-name" class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-base font-black rounded-2xl">定位中...</div></div>
             <div class="space-y-3 mb-6 text-left">
-                <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <div class="relative">
+                    <input type="text" id="in-nick" maxlength="10" placeholder="您的暱稱 (標註成功將獲得功德！)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                    <p id="nick-hint" class="text-[10px] mt-1 ml-2 font-bold text-slate-400"></p>
+                </div>
                 <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <input type="text" id="in-desc" placeholder="詳細描述 (顏色特徵、外觀)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
@@ -136,7 +138,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
@@ -155,7 +157,24 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // 地圖判定 (維持原樣)
+        // --- 核心邏輯：輸入暱稱即時查詢功德 ---
+        document.getElementById('in-nick').addEventListener('change', async (e) => {
+            const nick = e.target.value.trim();
+            const hint = document.getElementById('nick-hint');
+            if(!nick) { hint.innerText = ""; return; }
+            
+            hint.innerText = "查詢中...";
+            try {
+                const userSnap = await getDoc(doc(USER_COLL, nick));
+                if(userSnap.exists()) {
+                    hint.innerHTML = `✅ 已識別，目前功德：<span class="text-indigo-600 font-black">${userSnap.data().merit || 0}</span>`;
+                } else {
+                    hint.innerHTML = `✨ <span class="text-emerald-500 font-black">新英雄！</span>標註成功將建立專屬暱稱。`;
+                }
+            } catch(e) { hint.innerText = ""; }
+        });
+
+        // (其他地圖與渲染邏輯保持不變...)
         function checkHit(px, py, b) {
             if (b.name === "環境樓") {
                 const rad = (b.angle || 0) * Math.PI / 180;
@@ -299,7 +318,6 @@
                 </div>`).join('');
         }
 
-        // 修改後的圖片壓縮邏輯 (整合進入 PC 版)
         window.previewImage = (input) => {
             const f = input.files[0]; 
             if(!f) return;
@@ -309,13 +327,13 @@
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
                     let width = img.width, height = img.height;
-                    const max_size = 800; // PC 版也維持 800px 確保不破限
+                    const max_size = 800; 
                     if (width > height) { if (width > max_size) { height *= max_size / width; width = max_size; } }
                     else { if (height > max_size) { width *= max_size / height; height = max_size; } }
                     canvas.width = width; canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); // 壓縮品質 0.6
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
                     document.getElementById('img-preview').src = compressedBase64;
                     document.getElementById('preview-container').classList.remove('hidden');
                     document.getElementById('upload-placeholder').classList.add('hidden');
@@ -325,7 +343,10 @@
             reader.readAsDataURL(f);
         };
 
-        window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
+        window.closeModals = () => {
+            document.getElementById('report-modal').classList.add('hidden');
+            document.getElementById('nick-hint').innerText = ""; // 關閉時清空提示
+        };
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
 </body>
