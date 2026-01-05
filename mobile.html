@@ -9,7 +9,6 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* 修改：外層容器置中地圖 */
         .map-section { 
             flex: 45; 
             position: relative; 
@@ -20,7 +19,6 @@
             overflow: hidden;
         }
 
-        /* 修改：鎖定地圖比例並作為點擊基準 */
         .map-container {
             width: 100%;
             aspect-ratio: 1191 / 855;
@@ -44,7 +42,7 @@
         #pins-layer { position: absolute; inset: 0; pointer-events: none; }
         .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
         
-        /* 修改：縮小圓點至 14px */
+        /* 圓點縮小至 14px */
         .pin-dot { 
             width: 14px; 
             height: 14px; 
@@ -62,7 +60,6 @@
 
         #shapes-layer { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
         .building-shape { position: absolute; background: transparent; transform-origin: center; }
-        .is-triangle { clip-path: polygon(0% 0%, 0% 100%, 100% 100%); -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%); }
         .tab-active { background-color: #4f46e5 !important; color: white !important; }
         .tab-lost-active { background-color: #ef4444 !important; color: white !important; }
     </style>
@@ -106,14 +103,14 @@
             </div>
             <div class="mb-4"><div id="location-name" class="inline-block px-4 py-1 bg-indigo-50 text-indigo-700 text-sm font-black rounded-xl">定位中...</div></div>
             <div class="space-y-2 mb-6 text-left">
-                <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
+                <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
                 <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
-                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
-                <input type="text" id="in-desc" placeholder="詳細描述 (顏色特徵、外觀)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
+                <input type="text" id="in-floor" placeholder="具體位置 (例：A302)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
+                <input type="text" id="in-desc" placeholder="詳細描述" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
                 <div class="p-2 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer text-center" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-lg mx-auto max-h-20 object-cover"></div>
-                    <div id="upload-placeholder" class="text-slate-400 text-[10px]">📷 拍照上傳 (選填)</div>
+                    <div id="upload-placeholder" class="text-slate-400 text-[10px]">📷 拍照壓縮上傳</div>
                 </div>
             </div>
             <button id="submit-btn" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg">確認標註 (+50 功德)</button>
@@ -123,7 +120,7 @@
 
     <div id="detail-modal" class="fixed inset-0 bg-slate-900/80 hidden flex items-center justify-center z-[400] p-6 backdrop-blur-md">
         <div class="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
-            <div id="detail-header-color" class="w-full bg-slate-100 flex items-center justify-center relative min-h-[150px]">
+            <div class="w-full bg-slate-100 flex items-center justify-center relative min-h-[150px]">
                 <img id="detail-img" src="" class="w-full h-auto max-h-[40vh] object-contain block">
                 <div id="no-img-placeholder" class="hidden text-slate-300 font-bold text-sm py-10">📷 無照片預覽</div>
             </div>
@@ -144,7 +141,7 @@
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl">是我的！</button>
+                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl">是我的/已領回</button>
                     <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
                 </div>
             </div>
@@ -172,32 +169,38 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
+        // 圖片壓縮邏輯
+        window.previewImage = (input) => {
+            const f = input.files[0]; 
+            if(!f) return;
+            const reader = new FileReader(); 
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width, height = img.height;
+                    const max_size = 800; 
+                    if (width > height) { if (width > max_size) { height *= max_size / width; width = max_size; } }
+                    else { if (height > max_size) { width *= max_size / height; height = max_size; } }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+                    document.getElementById('img-preview').src = compressedBase64;
+                    document.getElementById('preview-container').classList.remove('hidden');
+                    document.getElementById('upload-placeholder').classList.add('hidden');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(f);
+        };
+
         function checkHit(px, py, b) {
-            if (b.name === "環境樓") {
-                const rad = (b.angle || 0) * Math.PI / 180;
-                const cx = b.x + b.w/2, cy = b.y + b.h/2;
-                const dx = px - cx, dy = py - cy;
-                const rx = dx * Math.cos(-rad) - dy * Math.sin(-rad);
-                const ry = dx * Math.sin(-rad) + dy * Math.cos(-rad);
-                const x1 = -b.w/2, y1 = -b.h/2, x2 = -b.w/2, y2 = b.h/2, x3 = b.w/2, y3 = b.h/2;
-                const getArea = (xa,ya,xb,yb,xc,yc) => Math.abs((xa*(yb-yc)+xb*(yc-ya)+xc*(ya-yb))/2);
-                const total = getArea(x1,y1,x2,y2,x3,y3);
-                const pArea = getArea(rx,ry,x1,y1,x2,y2) + getArea(rx,ry,x2,y2,x3,y3) + getArea(rx,ry,x3,y3,x1,y1);
-                return Math.abs(total - pArea) < 1.0;
-            }
             return px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h;
         }
 
         onSnapshot(CAMPUS_DOC, (snap) => {
-            if (snap.exists()) {
-                buildings = snap.data().buildings || [];
-                const layer = document.getElementById('shapes-layer');
-                layer.innerHTML = buildings.map(b => {
-                    const isTri = (b.name === "環境樓");
-                    const triStyle = isTri ? `clip-path:polygon(0% 0%, 0% 100%, 100% 100%);` : '';
-                    return `<div class="building-shape" style="left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg); ${triStyle}"></div>`;
-                }).join('');
-            }
+            if (snap.exists()) buildings = snap.data().buildings || [];
         });
 
         window.handleMapClick = (e) => {
@@ -233,14 +236,9 @@
             currentTab = t;
             document.getElementById('tab-found').className = t==='found' ? "flex-1 py-2 rounded-xl font-black text-xs tab-active" : "flex-1 py-2 rounded-xl font-black text-xs text-slate-400";
             document.getElementById('tab-lost').className = t==='lost' ? "flex-1 py-2 rounded-xl font-black text-xs tab-lost-active" : "flex-1 py-2 rounded-xl font-black text-xs text-slate-400";
-            const submitBtn = document.getElementById('submit-btn');
-            if (t === 'found') {
-                submitBtn.innerText = "確認標註 (+50 功德)";
-                submitBtn.className = "w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg"; 
-            } else {
-                submitBtn.innerText = "發布求助標記";
-                submitBtn.className = "w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg"; 
-            }
+            const btn = document.getElementById('submit-btn');
+            if (t === 'found') { btn.innerText = "確認標註 (+50 功德)"; btn.className = "w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg"; }
+            else { btn.innerText = "發布求助標記"; btn.className = "w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg"; }
         };
 
         document.getElementById('submit-btn').onclick = async () => {
@@ -258,20 +256,19 @@
                 });
                 if(currentTab === 'found') await updateDoc(doc(USER_COLL, nick), { merit: increment(50) }).catch(() => setDoc(doc(USER_COLL, nick), { merit: 50 }));
                 location.reload(); 
-            } catch(e) { alert("失敗！"); }
+            } catch(e) { alert("上傳失敗，請再試一次！"); }
         };
 
         window.openDetail = (id) => {
             const item = reports.find(i => i.id === id); if(!item) return;
             document.getElementById('detail-name').innerText = item.name;
             document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
-            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供位置";
-            document.getElementById('detail-finder').innerText = item.finder || "匿名英雄";
-            document.getElementById('detail-desc').innerText = item.description || "無描述。";
+            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供";
+            document.getElementById('detail-finder').innerText = item.finder || "匿名";
+            document.getElementById('detail-desc').innerText = item.description || "無";
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
             if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
             else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
-            
             document.getElementById('btn-claim-now').onclick = async () => {
                 if(confirm('確認移除此標註？')){
                     if(item.type === 'found' && item.finder) await updateDoc(doc(USER_COLL, item.finder), { merit: increment(20) }).catch(()=>setDoc(doc(USER_COLL, item.finder), {merit:20}));
@@ -303,15 +300,6 @@
                 </div>`).join('');
         }
 
-        window.previewImage = (input) => {
-            const f = input.files[0]; if(!f) return;
-            const r = new FileReader(); r.onload = e => {
-                document.getElementById('img-preview').src = e.target.result;
-                document.getElementById('preview-container').classList.remove('hidden');
-                document.getElementById('upload-placeholder').classList.add('hidden');
-            };
-            r.readAsDataURL(f);
-        };
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
