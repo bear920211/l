@@ -4,7 +4,6 @@
     <script>
     // 設備偵測：如果是手機或平板，自動導向 mobile.html
     if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        // 確保你的手機版檔案名稱確實叫做 mobile.html
         window.location.href = "mobile.html"; 
     }
 </script>
@@ -156,7 +155,7 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // 地圖判定
+        // 地圖判定 (維持原樣)
         function checkHit(px, py, b) {
             if (b.name === "環境樓") {
                 const rad = (b.angle || 0) * Math.PI / 180;
@@ -193,14 +192,12 @@
             document.getElementById('report-modal').classList.remove('hidden');
         };
 
-        // 即時監聽動態
         onSnapshot(LOST_COLL, (s) => {
             reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
             document.getElementById('items-count').innerText = reports.length;
             renderPins(); renderList();
         });
 
-        // 即時監聽英雄榜
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
                 <div class="flex justify-between items-center p-2 bg-white/10 rounded-xl text-[11px]">
@@ -218,7 +215,6 @@
             btn.className = `w-full py-4 text-white font-black rounded-2xl shadow-lg transition ${t==='found'?'bg-indigo-600':'bg-red-500'}`;
         };
 
-        // 提交功能
         document.getElementById('submit-btn').onclick = async () => {
             const nick = document.getElementById('in-nick').value.trim();
             const item = document.getElementById('in-item').value.trim();
@@ -249,7 +245,6 @@
             }
         };
 
-        // 開啟詳細資訊
         window.openDetail = (id) => {
             const item = reports.find(i => i.id === id); if(!item) return;
             const tag = document.getElementById('type-tag'), claimBtn = document.getElementById('btn-claim-now');
@@ -304,15 +299,32 @@
                 </div>`).join('');
         }
 
+        // 修改後的圖片壓縮邏輯 (整合進入 PC 版)
         window.previewImage = (input) => {
-            const f = input.files[0]; if(!f) return;
-            const r = new FileReader(); r.onload = e => {
-                document.getElementById('img-preview').src = e.target.result;
-                document.getElementById('preview-container').classList.remove('hidden');
-                document.getElementById('upload-placeholder').classList.add('hidden');
+            const f = input.files[0]; 
+            if(!f) return;
+            const reader = new FileReader(); 
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width, height = img.height;
+                    const max_size = 800; // PC 版也維持 800px 確保不破限
+                    if (width > height) { if (width > max_size) { height *= max_size / width; width = max_size; } }
+                    else { if (height > max_size) { width *= max_size / height; height = max_size; } }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); // 壓縮品質 0.6
+                    document.getElementById('img-preview').src = compressedBase64;
+                    document.getElementById('preview-container').classList.remove('hidden');
+                    document.getElementById('upload-placeholder').classList.add('hidden');
+                };
+                img.src = e.target.result;
             };
-            r.readAsDataURL(f);
+            reader.readAsDataURL(f);
         };
+
         window.closeModals = () => document.getElementById('report-modal').classList.add('hidden');
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
