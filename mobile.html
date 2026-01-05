@@ -9,7 +9,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* 修改：外層負責背景與置中 */
+        /* 修改：外層容器置中地圖 */
         .map-section { 
             flex: 45; 
             position: relative; 
@@ -20,7 +20,7 @@
             overflow: hidden;
         }
 
-        /* 新增：內層鎖定 1191:855 比例，確保座標與電腦版 100% 同步 */
+        /* 修改：鎖定地圖比例並作為點擊基準 */
         .map-container {
             width: 100%;
             aspect-ratio: 1191 / 855;
@@ -43,8 +43,23 @@
 
         #pins-layer { position: absolute; inset: 0; pointer-events: none; }
         .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
-        .pin-dot { width: 22px; height: 22px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3); animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        
+        /* 修改：縮小圓點至 14px */
+        .pin-dot { 
+            width: 14px; 
+            height: 14px; 
+            border-radius: 50%; 
+            border: 2px solid white; 
+            box-shadow: 0 0 8px rgba(0,0,0,0.3); 
+            animation: pulse 2s infinite; 
+        }
+
+        @keyframes pulse { 
+            0% { transform: scale(1); opacity: 1; } 
+            50% { transform: scale(1.2); opacity: 0.8; } 
+            100% { transform: scale(1); opacity: 1; } 
+        }
+
         #shapes-layer { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
         .building-shape { position: absolute; background: transparent; transform-origin: center; }
         .is-triangle { clip-path: polygon(0% 0%, 0% 100%, 100% 100%); -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%); }
@@ -84,7 +99,7 @@
     </div>
 
     <div id="report-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[300] p-6 backdrop-blur-sm">
-        <div class="bg-white rounded-[2.5rem] w-full max-sm p-6 shadow-2xl text-center">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-6 shadow-2xl text-center">
             <div class="flex bg-slate-100 p-1 rounded-2xl mb-4">
                 <button onclick="switchTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-xs tab-active">撿到東西</button>
                 <button onclick="switchTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-xs text-slate-400">遺失物品</button>
@@ -187,7 +202,6 @@
 
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
-            // 座標計算基準現在縮小到 map-container 本身
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
             const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
             document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
