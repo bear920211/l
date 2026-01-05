@@ -8,8 +8,27 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        .map-section { flex: 60; position: relative; background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain; cursor: crosshair; }
-        .list-section { flex: 40; background: white; border-top-left-radius: 2.5rem; border-top-right-radius: 2.5rem; box-shadow: 0 -10px 25px rgba(0,0,0,0.05); display: flex; flex-direction: column; z-index: 50; }
+        
+        /* 調整這裡的 flex 比例以縮小灰色空白 */
+        .map-section { 
+            flex: 45; 
+            position: relative; 
+            background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center center; 
+            background-size: contain; 
+            cursor: crosshair; 
+        }
+        
+        .list-section { 
+            flex: 55; 
+            background: white; 
+            border-top-left-radius: 2.5rem; 
+            border-top-right-radius: 2.5rem; 
+            box-shadow: 0 -10px 25px rgba(0,0,0,0.05); 
+            display: flex; 
+            flex-direction: column; 
+            z-index: 50; 
+        }
+
         #pins-layer { position: absolute; inset: 0; pointer-events: none; }
         .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
         .pin-dot { width: 22px; height: 22px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3); animation: pulse 2s infinite; }
@@ -25,7 +44,7 @@
 
     <div class="px-6 py-4 flex justify-between items-end bg-white border-b">
         <div>
-            <h1 class="text-xl font-[900] text-slate-800 tracking-tighter">NTCU 拾物所</h1>
+            <h1 class="text-xl font-[900] text-slate-800 tracking-tighter">NTCU 互助會</h1>
             <p class="text-[10px] text-slate-600 font-medium">點擊地圖標註：<span class="text-indigo-600 font-black">藍色拾獲</span> / <span class="text-red-500 font-black">紅色遺失</span></p>
         </div>
         <div class="bg-white p-2 px-3 rounded-2xl shadow-sm border-2 border-indigo-100 text-left min-w-[100px]">
@@ -124,7 +143,6 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // 判斷邏輯
         function checkHit(px, py, b) {
             if (b.name === "環境樓") {
                 const rad = (b.angle || 0) * Math.PI / 180;
@@ -169,7 +187,7 @@
 
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
-                <div class="flex justify-between items-center p-3 bg-white/10 rounded-xl">
+                <div class="flex justify-between items-center p-3 bg-white/10 rounded-xl mb-2">
                     <span>${i+1}. ${d.id}</span><b>${d.data().merit || 0} pts</b>
                 </div>`).join('');
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
@@ -241,7 +259,7 @@
 
         function renderList() {
             document.getElementById('section-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => `
-                <div onclick="openDetail('${i.id}')" class="p-4 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 shadow-sm">
+                <div onclick="openDetail('${i.id}')" class="p-4 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 shadow-sm mb-3">
                     <div class="w-12 h-12 bg-slate-100 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '🎁'}
                     </div>
