@@ -204,8 +204,15 @@
             currentTab = t;
             document.getElementById('tab-found').className = t==='found' ? "flex-1 py-2 rounded-xl font-black text-xs tab-active" : "flex-1 py-2 rounded-xl font-black text-xs text-slate-400";
             document.getElementById('tab-lost').className = t==='lost' ? "flex-1 py-2 rounded-xl font-black text-xs tab-lost-active" : "flex-1 py-2 rounded-xl font-black text-xs text-slate-400";
-            document.getElementById('submit-btn').innerText = t === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
-        };
+            const submitBtn = document.getElementById('submit-btn');
+    if (t === 'found') {
+        submitBtn.innerText = "確認標註 (+50 功德)";
+        submitBtn.className = "w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg"; // 變回藍色
+    } else {
+        submitBtn.innerText = "發布求助標記";
+        submitBtn.className = "w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg"; // 變為紅色
+    }
+};
 
         document.getElementById('submit-btn').onclick = async () => {
             const nick = document.getElementById('in-nick').value.trim();
