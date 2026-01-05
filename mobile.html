@@ -3,59 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NTCU 互助會 | 手機版</title>
+    <title>NTCU 互助會</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
-        body { 
-            font-family: 'Noto Sans TC', sans-serif; 
-            background: #f8fafc; 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; /* 禁止外層滾動，由內層列表滾動 */
-        }
-        /* 地圖區域：佔據上半部 */
-        .map-section {
-            flex: 60; 
-            position: relative;
-            background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
-            cursor: crosshair;
-        }
-        /* 列表區域：佔據下半部 */
-        .list-section {
-            flex: 40;
-            background: white;
-            border-top-left-radius: 2.5rem;
-            border-top-right-radius: 2.5rem;
-            box-shadow: 0 -10px 25px rgba(0,0,0,0.05);
-            display: flex;
-            flex-direction: column;
-            z-index: 50;
-        }
+        body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .map-section { flex: 60; position: relative; background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain; cursor: crosshair; }
+        .list-section { flex: 40; background: white; border-top-left-radius: 2.5rem; border-top-right-radius: 2.5rem; box-shadow: 0 -10px 25px rgba(0,0,0,0.05); display: flex; flex-direction: column; z-index: 50; }
         #pins-layer { position: absolute; inset: 0; pointer-events: none; }
         .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
-        /* 手機版點點放大到 24px，好點擊 */
-        .pin-dot { width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
-        
-        /* 隱藏地圖判定用的圖層 */
+        .pin-dot { width: 22px; height: 22px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
         #shapes-layer { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
         .building-shape { position: absolute; background: transparent; transform-origin: center; }
         .is-triangle { clip-path: polygon(0% 0%, 0% 100%, 100% 100%); -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%); }
-
         .tab-active { background-color: #4f46e5 !important; color: white !important; }
         .tab-lost-active { background-color: #ef4444 !important; color: white !important; }
     </style>
 </head>
 <body>
 
-    <div class="px-6 py-3 flex justify-between items-center bg-white border-b">
+    <div class="px-6 py-4 flex justify-between items-end bg-white border-b">
         <div>
-            <h1 class="font-black text-lg text-slate-800">NTCU 拾物所</h1>
-            <p class="text-[10px] text-slate-400 font-bold">點擊地圖標註：藍/紅</p>
+            <h1 class="text-xl font-[900] text-slate-800 tracking-tighter">NTCU 互助會</h1>
+            <p class="text-[10px] text-slate-600 font-medium">點擊地圖標註：<span class="text-indigo-600 font-black">藍色拾獲</span> / <span class="text-red-500 font-black">紅色遺失</span></p>
         </div>
-        <div class="bg-indigo-50 px-4 py-1.5 rounded-2xl border border-indigo-100 max-w-[120px]">
-            <span class="text-[8px] text-slate-400 block font-black leading-none mb-1 uppercase">Top Hero</span>
+        <div class="bg-white p-2 px-3 rounded-2xl shadow-sm border-2 border-indigo-100 text-left min-w-[100px]">
+            <span class="text-[8px] font-black text-slate-400 block tracking-[0.1em] mb-0.5">TOP HERO</span>
             <span id="top-hero-name" class="text-xs font-black text-indigo-600 truncate block">載入中...</span>
         </div>
     </div>
@@ -66,54 +40,63 @@
     </div>
 
     <div class="list-section">
-        <div class="p-5 border-b flex justify-between items-center">
-            <h2 class="font-black text-slate-700">最新動態</h2>
-            <div class="flex items-center gap-2">
-                <span id="items-count" class="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">0</span>
-            </div>
+        <div class="flex border-b">
+            <button onclick="showSection('list')" id="btn-list" class="flex-1 py-3 font-black text-sm text-indigo-600 border-b-2 border-indigo-600">最新動態 (<span id="items-count">0</span>)</button>
+            <button onclick="showSection('rank')" id="btn-rank" class="flex-1 py-3 font-black text-sm text-slate-400">🏆 功德榜</button>
         </div>
-        <div id="items-list" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-            </div>
+        <div id="section-list" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50"></div>
+        <div id="section-rank" class="hidden flex-1 overflow-y-auto p-4 bg-indigo-600">
+            <div id="leaderboard" class="space-y-3 text-xs text-white"></div>
+        </div>
     </div>
 
     <div id="report-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[300] p-6 backdrop-blur-sm">
-        <div class="bg-white rounded-[2.5rem] w-full p-6 shadow-2xl text-center">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-6 shadow-2xl text-center">
             <div class="flex bg-slate-100 p-1 rounded-2xl mb-4">
-                <button onclick="switchTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-sm tab-active">撿到東西</button>
-                <button onclick="switchTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-sm text-slate-400">遺失物品</button>
+                <button onclick="switchTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-xs tab-active">撿到東西</button>
+                <button onclick="switchTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-xs text-slate-400">遺失物品</button>
             </div>
-            <div id="location-name" class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-black rounded-xl mb-4">定位中...</div>
+            <div class="mb-4"><div id="location-name" class="inline-block px-4 py-1 bg-indigo-50 text-indigo-700 text-sm font-black rounded-xl">定位中...</div></div>
             <div class="space-y-2 mb-6 text-left">
-                <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(最多10字)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
-                <input type="text" id="in-item" placeholder="物品名稱" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
-                <input type="text" id="in-floor" placeholder="具體位置" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
+                <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
+                <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
+                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
+                <input type="text" id="in-desc" placeholder="詳細描述 (顏色特徵、外觀)" class="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none">
                 <div class="p-2 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer text-center" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-lg mx-auto max-h-20 object-cover"></div>
                     <div id="upload-placeholder" class="text-slate-400 text-[10px]">📷 拍照上傳 (選填)</div>
                 </div>
             </div>
-            <button id="submit-btn" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl">確認標註</button>
+            <button id="submit-btn" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg">確認標註 (+50 功德)</button>
             <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs">取消</button>
         </div>
     </div>
 
     <div id="detail-modal" class="fixed inset-0 bg-slate-900/80 hidden flex items-center justify-center z-[400] p-6 backdrop-blur-md">
-        <div class="bg-white rounded-[2.5rem] w-full overflow-hidden shadow-2xl flex flex-col max-h-[80vh]">
-            <div id="detail-header-color" class="w-full bg-slate-100 flex items-center justify-center relative min-h-[120px]">
-                <img id="detail-img" src="" class="w-full h-auto max-h-[30vh] object-contain">
-                <div id="no-img-placeholder" class="hidden text-slate-300 font-bold text-xs">📷 無照片預覽</div>
+        <div class="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+            <div id="detail-header-color" class="w-full bg-slate-100 flex items-center justify-center relative min-h-[150px]">
+                <img id="detail-img" src="" class="w-full h-auto max-h-[40vh] object-contain block">
+                <div id="no-img-placeholder" class="hidden text-slate-300 font-bold text-sm py-10">📷 無照片預覽</div>
             </div>
-            <div class="p-6 overflow-y-auto">
-                <h2 id="detail-name" class="text-xl font-black text-slate-800 mb-1">物品名稱</h2>
-                <p id="detail-loc" class="text-slate-400 font-bold text-xs mb-4"></p>
+            <div class="p-6 overflow-y-auto text-left">
+                <h2 id="detail-name" class="text-xl font-black text-slate-800"></h2>
+                <div class="flex justify-between items-center mb-4">
+                    <p id="detail-loc" class="text-slate-400 font-bold text-xs"></p>
+                    <span class="text-[9px] bg-slate-100 px-2 py-0.5 rounded-lg text-slate-500 font-bold">由 <span id="detail-finder"></span> 提供</span>
+                </div>
                 <div class="space-y-3 mb-6">
                     <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500">
+                        <p class="text-[8px] text-slate-400 font-black uppercase tracking-widest">具體位置</p>
                         <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
+                    </div>
+                    <div class="bg-amber-50 rounded-xl p-3 border-l-4 border-amber-400">
+                        <p class="text-[8px] text-amber-500 font-black uppercase tracking-widest">詳細描述</p>
+                        <p id="detail-desc" class="font-bold text-sm text-slate-700"></p>
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl">認領/尋獲</button>
+                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl">是我的！</button>
                     <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
                 </div>
             </div>
@@ -124,7 +107,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // [Firebase 設定請填入原本的內容]
         const firebaseConfig = {
             apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
             authDomain: "lostandnotfound-6d007.firebaseapp.com",
@@ -142,7 +124,7 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // 地圖邏輯 (與原本一致)
+        // 判斷邏輯
         function checkHit(px, py, b) {
             if (b.name === "環境樓") {
                 const rad = (b.angle || 0) * Math.PI / 180;
@@ -166,7 +148,7 @@
                 layer.innerHTML = buildings.map(b => {
                     const isTri = (b.name === "環境樓");
                     const triStyle = isTri ? `clip-path:polygon(0% 0%, 0% 100%, 100% 100%);` : '';
-                    return `<div class="building-shape ${isTri ? 'is-triangle' : ''}" style="left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg); ${triStyle}"></div>`;
+                    return `<div class="building-shape" style="left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg); ${triStyle}"></div>`;
                 }).join('');
             }
         });
@@ -175,7 +157,7 @@
             const r = document.getElementById('map-root').getBoundingClientRect();
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
             const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
-            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園區域"}`;
+            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
             document.getElementById('report-modal').classList.remove('hidden');
         };
 
@@ -186,13 +168,25 @@
         });
 
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
+            document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
+                <div class="flex justify-between items-center p-3 bg-white/10 rounded-xl">
+                    <span>${i+1}. ${d.id}</span><b>${d.data().merit || 0} pts</b>
+                </div>`).join('');
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
+        window.showSection = (type) => {
+            document.getElementById('section-list').classList.toggle('hidden', type !== 'list');
+            document.getElementById('section-rank').classList.toggle('hidden', type !== 'rank');
+            document.getElementById('btn-list').className = type==='list' ? "flex-1 py-3 font-black text-sm text-indigo-600 border-b-2 border-indigo-600" : "flex-1 py-3 font-black text-sm text-slate-400";
+            document.getElementById('btn-rank').className = type==='rank' ? "flex-1 py-3 font-black text-sm text-indigo-600 border-b-2 border-indigo-600" : "flex-1 py-3 font-black text-sm text-slate-400";
+        };
+
         window.switchTab = (t) => {
             currentTab = t;
-            document.getElementById('tab-found').className = t==='found' ? "flex-1 py-2 rounded-xl font-black text-sm tab-active" : "flex-1 py-2 rounded-xl font-black text-sm text-slate-400";
-            document.getElementById('tab-lost').className = t==='lost' ? "flex-1 py-2 rounded-xl font-black text-sm tab-lost-active" : "flex-1 py-2 rounded-xl font-black text-sm text-slate-400";
+            document.getElementById('tab-found').className = t==='found' ? "flex-1 py-2 rounded-xl font-black text-xs tab-active" : "flex-1 py-2 rounded-xl font-black text-xs text-slate-400";
+            document.getElementById('tab-lost').className = t==='lost' ? "flex-1 py-2 rounded-xl font-black text-xs tab-lost-active" : "flex-1 py-2 rounded-xl font-black text-xs text-slate-400";
+            document.getElementById('submit-btn').innerText = t === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
         };
 
         document.getElementById('submit-btn').onclick = async () => {
@@ -203,6 +197,7 @@
                 await setDoc(doc(LOST_COLL), {
                     type: currentTab, name: item, finder: nick,
                     floor_info: document.getElementById('in-floor').value,
+                    description: document.getElementById('in-desc').value,
                     location: document.getElementById('location-name').innerText.replace('📍 ',''),
                     imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
                     x: clickPos.x, y: clickPos.y, time: Date.now()
@@ -216,13 +211,16 @@
             const item = reports.find(i => i.id === id); if(!item) return;
             document.getElementById('detail-name').innerText = item.name;
             document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
-            document.getElementById('detail-floor').innerText = item.floor_info || "無詳細位置";
+            document.getElementById('detail-floor').innerText = item.floor_info || "尚未提供位置";
+            document.getElementById('detail-finder').innerText = item.finder || "匿名英雄";
+            document.getElementById('detail-desc').innerText = item.description || "無描述。";
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
             if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
             else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
             
             document.getElementById('btn-claim-now').onclick = async () => {
                 if(confirm('確認移除此標註？')){
+                    if(item.type === 'found' && item.finder) await updateDoc(doc(USER_COLL, item.finder), { merit: increment(20) }).catch(()=>setDoc(doc(USER_COLL, item.finder), {merit:20}));
                     await deleteDoc(doc(db, "all_reports_v3", id));
                     location.reload(); 
                 }
@@ -242,7 +240,7 @@
         }
 
         function renderList() {
-            document.getElementById('items-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => `
+            document.getElementById('section-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => `
                 <div onclick="openDetail('${i.id}')" class="p-4 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 shadow-sm">
                     <div class="w-12 h-12 bg-slate-100 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '🎁'}
