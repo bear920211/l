@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+    <script>
+    // 設備偵測：如果是手機或平板，自動導向 mobile.html
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        // 確保你的手機版檔案名稱確實叫做 mobile.html
+        window.location.href = "mobile.html"; 
+    }
+</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NTCU 互助會</title>
