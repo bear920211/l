@@ -9,7 +9,6 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* 地圖核心比例鎖定 (同電腦版 1191:855) */
         .map-section { 
             flex: 45; 
             position: relative; 
@@ -111,7 +110,7 @@
                     <div id="upload-placeholder" class="text-slate-400 text-[10px]">📷 拍照上傳 (選填)</div>
                 </div>
             </div>
-            <button id="submit-btn" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-200">確認標註 (+50 功德)</button>
+            <button id="submit-btn" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg">確認標註 (+50 功德)</button>
             <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs underline">取消</button>
         </div>
     </div>
@@ -139,7 +138,7 @@
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg shadow-emerald-200">是我的！</button>
+                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg">是我的！</button>
                     <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl text-sm">關閉</button>
                 </div>
             </div>
@@ -167,7 +166,7 @@
 
         let currentTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // 暱稱識別文字同步
+        // 暱稱識別
         document.getElementById('in-nick').addEventListener('change', async (e) => {
             const nick = e.target.value.trim();
             const hint = document.getElementById('nick-hint');
@@ -181,16 +180,7 @@
             }
         });
 
-        // 地圖點擊定位
-        window.handleMapClick = (e) => {
-            const r = document.getElementById('map-root').getBoundingClientRect();
-            clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
-            const hit = buildings.find(b => clickPos.x >= b.x && clickPos.x <= b.x + b.w && clickPos.y >= b.y && clickPos.y <= b.y + b.h);
-            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
-            document.getElementById('report-modal').classList.remove('hidden');
-        };
-
-        // 詳情與確認刪除文字
+        // 核心：詳情與認領邏輯 (字字對齊電腦版)
         window.openDetail = (id) => {
             const item = reports.find(i => i.id === id); if(!item) return;
             const claimBtn = document.getElementById('btn-claim-now');
@@ -206,10 +196,16 @@
             if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
             else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
 
+            // 認領點擊事件：完整搬運電腦版文字與邏輯
             claimBtn.onclick = async () => {
-                const msg = item.type === 'found' ? '確定認領嗎？' : '確定找到就會刪除了呵！';
-                if(confirm(msg)){
-                    if(item.type === 'found' && item.finder) await updateDoc(doc(USER_COLL, item.finder), { merit: increment(20) }).catch(()=>setDoc(doc(USER_COLL, item.finder), {merit:20}));
+                const confirmText = item.type === 'found' ? '確認要領回這件物品嗎？' : '您是否已經找回這件遺失物？';
+                if(confirm(confirmText)){
+                    if(item.type === 'found' && item.finder) {
+                        await updateDoc(doc(USER_COLL, item.finder), { merit: increment(20) }).catch(() => {
+                            setDoc(doc(USER_COLL, item.finder), { merit: 20 });
+                        });
+                        alert(`認領完成！已發放 20 功德給好心人：${item.finder}`);
+                    }
                     await deleteDoc(doc(db, "all_reports_v3", id));
                     location.reload(); 
                 }
@@ -217,7 +213,7 @@
             document.getElementById('detail-modal').classList.remove('hidden');
         };
 
-        // Firebase 監聽
+        // Firebase 其他監聽邏輯
         onSnapshot(CAMPUS_DOC, (snap) => { if (snap.exists()) buildings = snap.data().buildings || []; });
         onSnapshot(LOST_COLL, (s) => {
             reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -232,7 +228,14 @@
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
-        // UI 其他函數
+        window.handleMapClick = (e) => {
+            const r = document.getElementById('map-root').getBoundingClientRect();
+            clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
+            const hit = buildings.find(b => clickPos.x >= b.x && clickPos.x <= b.x + b.w && clickPos.y >= b.y && clickPos.y <= b.y + b.h);
+            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
+            document.getElementById('report-modal').classList.remove('hidden');
+        };
+
         window.switchTab = (t) => {
             currentTab = t;
             document.getElementById('tab-found').className = t==='found' ? "flex-1 py-2 rounded-xl font-black text-xs tab-active" : "flex-1 py-2 rounded-xl font-black text-xs text-slate-400";
@@ -245,18 +248,16 @@
             const nick = document.getElementById('in-nick').value.trim();
             const item = document.getElementById('in-item').value.trim();
             if(!nick || !item) return alert("請填寫必填欄位！");
-            try {
-                await setDoc(doc(LOST_COLL), {
-                    type: currentTab, name: item, finder: nick,
-                    floor_info: document.getElementById('in-floor').value,
-                    description: document.getElementById('in-desc').value,
-                    location: document.getElementById('location-name').innerText.replace('📍 ',''),
-                    imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
-                    x: clickPos.x, y: clickPos.y, time: Date.now()
-                });
-                if(currentTab === 'found') await updateDoc(doc(USER_COLL, nick), { merit: increment(50) }).catch(() => setDoc(doc(USER_COLL, nick), { merit: 50 }));
-                location.reload();
-            } catch(e) { alert("發布失敗，請稍後再試！"); }
+            await setDoc(doc(LOST_COLL), {
+                type: currentTab, name: item, finder: nick,
+                floor_info: document.getElementById('in-floor').value,
+                description: document.getElementById('in-desc').value,
+                location: document.getElementById('location-name').innerText.replace('📍 ',''),
+                imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
+                x: clickPos.x, y: clickPos.y, time: Date.now()
+            });
+            if(currentTab === 'found') await updateDoc(doc(USER_COLL, nick), { merit: increment(50) }).catch(() => setDoc(doc(USER_COLL, nick), { merit: 50 }));
+            location.reload(); 
         };
 
         window.previewImage = (input) => {
