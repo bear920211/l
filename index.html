@@ -272,12 +272,13 @@
             else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
             
             claimBtn.onclick = async () => {
-                const msg = item.type === 'found' ? '確定認領嗎？' : '確定找到就會刪除了呵！';
-                if(confirm(msg)){
+                const confirmText = item.type === 'found' ? '確認要領回這件物品嗎？' : '您是否已經找回這件遺失物？';
+                if(confirm(confirmText)){
                     if(item.type === 'found' && item.finder) {
                         await updateDoc(doc(USER_COLL, item.finder), { merit: increment(20) }).catch(() => {
                             setDoc(doc(USER_COLL, item.finder), { merit: 20 });
                         });
+                        alert(`認領完成！已發放 20 功德給好心人：${item.finder}`);
                     }
                     await deleteDoc(doc(db, "all_reports_v3", id));
                     location.reload(); 
