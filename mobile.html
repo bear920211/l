@@ -9,14 +9,17 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
         
-        /* 使用原圖 1000:600 的比例進行縮放 */
+        /* 比例修正核心：將高度移除，改用 aspect-ratio 鎖定原圖 1000x600 的比例 */
         .map-container {
             position: relative; 
             width: 100%; 
-            aspect-ratio: 1000 / 600; 
+            aspect-ratio: 1000 / 600; /* 強制與底圖比例 5:3 相同 */
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
-            border-radius: 2.5rem; border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-            overflow: hidden; cursor: crosshair;
+            border-radius: 2.5rem; 
+            border: 8px solid white; 
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            overflow: hidden; 
+            cursor: crosshair;
         }
 
         #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
@@ -29,12 +32,14 @@
         }
         .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
         .pin-dot { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 0 12px rgba(0,0,0,0.3); animation: pulse 2s infinite; }
+        
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0.4); transform: scale(1); }
             70% { box-shadow: 0 0 0 12px rgba(79, 70, 229, 0); transform: scale(1.1); }
             100% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0); transform: scale(1); }
         }
 
+        /* 分頁樣式 */
         .info-tab-active { background: white; color: #4f46e5; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         .tab-active { background-color: #4f46e5 !important; color: white !important; }
         .tab-lost-active { background-color: #ef4444 !important; color: white !important; }
@@ -154,7 +159,7 @@
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 分頁與詳情邏輯 (文字對齊截圖) ---
+        // --- 功能與文字邏輯 ---
         window.switchInfoTab = (tab) => {
             const isNews = tab === 'news';
             document.getElementById('btn-news').classList.toggle('info-tab-active', isNews);
@@ -205,7 +210,7 @@
             document.getElementById('detail-modal').classList.remove('hidden');
         };
 
-        // --- 核心渲染與地圖邏輯 ---
+        // --- 核心地圖與點位 ---
         onSnapshot(LOST_COLL, (s) => {
             reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
             document.getElementById('items-count').innerText = reports.length;
