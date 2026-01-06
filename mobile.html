@@ -9,10 +9,11 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
         
-        /* 比例對齊電腦版 */
+        /* 使用原圖 1000:600 的比例進行縮放 */
         .map-container {
-            position: relative; width: 100%; 
-            aspect-ratio: 16 / 9; 
+            position: relative; 
+            width: 100%; 
+            aspect-ratio: 1000 / 600; 
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
             border-radius: 2.5rem; border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
             overflow: hidden; cursor: crosshair;
@@ -34,7 +35,6 @@
             100% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0); transform: scale(1); }
         }
 
-        /* 分頁標籤樣式 */
         .info-tab-active { background: white; color: #4f46e5; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         .tab-active { background-color: #4f46e5 !important; color: white !important; }
         .tab-lost-active { background-color: #ef4444 !important; color: white !important; }
@@ -49,11 +49,11 @@
                 <div class="bg-white p-4 px-6 rounded-[2rem] shadow-sm border-2 border-indigo-100 w-full flex justify-between items-center">
                     <div>
                         <span class="text-[10px] font-black text-slate-400 block tracking-[0.2em]">TOP HERO</span>
-                        <span id="top-hero-name" class="text-xl font-black text-indigo-600 truncate block font-black">載入中...</span>
+                        <span id="top-hero-name" class="text-xl font-black text-indigo-600 truncate block">載入中...</span>
                     </div>
                     <div class="text-right">
                         <span class="text-[10px] font-black text-slate-400 block tracking-[0.2em]">物件總數</span>
-                        <span id="items-count" class="text-xl font-black text-slate-700 block font-black">0</span>
+                        <span id="items-count" class="text-xl font-black text-slate-700 block">0</span>
                     </div>
                 </div>
             </div>
@@ -65,8 +65,8 @@
         </div>
 
         <div class="bg-slate-100 p-1.5 rounded-[2.5rem] flex mb-4">
-            <button onclick="switchInfoTab('news')" id="btn-news" class="flex-1 py-3 rounded-[2rem] font-black text-sm info-tab-active transition-all">最新動態</button>
-            <button onclick="switchInfoTab('rank')" id="btn-rank" class="flex-1 py-3 rounded-[2rem] font-black text-sm text-slate-500 transition-all">功德榜</button>
+            <button onclick="switchInfoTab('news')" id="btn-news" class="flex-1 py-3 rounded-[2rem] font-black text-sm info-tab-active">最新動態</button>
+            <button onclick="switchInfoTab('rank')" id="btn-rank" class="flex-1 py-3 rounded-[2rem] font-black text-sm text-slate-500">功德榜</button>
         </div>
 
         <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] overflow-hidden flex flex-col mb-10">
@@ -113,21 +113,21 @@
                 <h2 id="detail-name" class="text-2xl font-black text-slate-800 line-clamp-1">物品名稱</h2>
                 <div class="flex justify-between items-center mb-4">
                     <p id="detail-loc" class="text-slate-400 font-bold text-sm truncate"></p>
-                    <span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-lg text-slate-500 font-bold font-black">由 <span id="detail-finder"></span> 提供</span>
+                    <span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-lg text-slate-500 font-bold">由 <span id="detail-finder"></span> 提供</span>
                 </div>
                 <div class="space-y-3 mb-6">
-                    <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500 font-black">
-                        <p class="text-[9px] text-slate-400">具體位置</p>
-                        <p id="detail-floor" class="font-bold text-sm text-slate-700 font-black"></p>
+                    <div class="bg-slate-50 rounded-xl p-3 border-l-4 border-indigo-500">
+                        <p class="text-[9px] text-slate-400 font-black">具體位置</p>
+                        <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
                     </div>
-                    <div class="bg-amber-50 rounded-xl p-3 border-l-4 border-amber-400 font-black">
-                        <p class="text-[9px] text-amber-500">詳細描述</p>
-                        <p id="detail-desc" class="font-bold text-sm text-slate-700 font-black"></p>
+                    <div class="bg-amber-50 rounded-xl p-3 border-l-4 border-amber-400">
+                        <p class="text-[9px] text-amber-500 font-black">詳細描述</p>
+                        <p id="detail-desc" class="font-bold text-sm text-slate-700"></p>
                     </div>
                 </div>
                 <div class="flex gap-2">
                     <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl">是我的！</button>
-                    <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl font-black">關閉</button>
+                    <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
                 </div>
             </div>
         </div>
@@ -154,7 +154,7 @@
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 分頁切換 ---
+        // --- 分頁與詳情邏輯 (文字對齊截圖) ---
         window.switchInfoTab = (tab) => {
             const isNews = tab === 'news';
             document.getElementById('btn-news').classList.toggle('info-tab-active', isNews);
@@ -172,11 +172,9 @@
             btn.className = `w-full py-4 text-white font-black rounded-2xl shadow-lg transition ${t==='found'?'bg-indigo-600':'bg-red-500'}`;
         };
 
-        // --- 核心詳情彈窗 (完全對齊截圖內容) ---
         window.openDetail = (id) => {
             const item = reports.find(i => i.id === id); if(!item) return;
             const tag = document.getElementById('type-tag'), claimBtn = document.getElementById('btn-claim-now');
-            
             tag.innerText = item.type === 'found' ? '拾獲物' : '協尋中';
             tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 ${item.type==='found'?'bg-indigo-600':'bg-red-500'}`;
             claimBtn.innerText = item.type === 'found' ? '是我的！' : '找到了！';
@@ -207,7 +205,7 @@
             document.getElementById('detail-modal').classList.remove('hidden');
         };
 
-        // --- 其餘地圖、渲染、上傳邏輯 ---
+        // --- 核心渲染與地圖邏輯 ---
         onSnapshot(LOST_COLL, (s) => {
             reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
             document.getElementById('items-count').innerText = reports.length;
@@ -241,11 +239,11 @@
 
         function renderList() {
             document.getElementById('items-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => `
-                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 font-black">
+                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100">
                     <div class="w-10 h-10 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '🎁'}
                     </div>
-                    <div class="flex-1 truncate text-left font-bold text-sm text-slate-700">${i.name}<div class="text-[9px] text-slate-400 italic font-medium">${i.location}</div></div>
+                    <div class="flex-1 truncate text-left font-bold text-sm text-slate-700 font-black">${i.name}<div class="text-[9px] text-slate-400 italic font-medium font-black">${i.location}</div></div>
                 </div>`).join('');
         }
 
