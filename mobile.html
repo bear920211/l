@@ -2,14 +2,14 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NTCU 互助會 | 拾物所</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
+        body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; overflow-x: hidden; }
         
-        /* 核心比例校準：1191 x 855 (約 1.39:1) */
+        /* 比例校準：1191 x 855 (1.39:1) */
         .map-container {
             position: relative; 
             width: 100%; 
@@ -25,11 +25,13 @@
         #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
         #shapes-layer { z-index: 10; opacity: 0; } 
         #pins-layer { z-index: 20; }
+        
         .building-shape { position: absolute; background: transparent; transform-origin: center; } 
         .is-triangle { 
             clip-path: polygon(0% 0%, 0% 100%, 100% 100%); 
             -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%);
         }
+
         .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
         .pin-dot { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 0 12px rgba(0,0,0,0.3); animation: pulse 2s infinite; }
         
@@ -42,8 +44,6 @@
         .info-tab-active { background: white; color: #4f46e5; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         .tab-active { background-color: #4f46e5 !important; color: white !important; }
         .tab-lost-active { background-color: #ef4444 !important; color: white !important; }
-        
-        /* 隱藏滾動條 */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
     </style>
 </head>
@@ -52,7 +52,12 @@
     <div class="max-w-md mx-auto pb-10">
         <header class="flex flex-col gap-4 mb-6 text-left">
             <div>
-                <h1 class="text-4xl font-[900] text-slate-800 tracking-tighter mb-2">NTCU 拾物所</h1>
+                <h1 class="text-4xl font-[900] text-slate-800 tracking-tighter mb-1">NTCU 拾物所</h1>
+                
+                <p class="text-slate-600 text-[13px] font-black mb-4 pl-1">
+                    點擊地圖標註：<span class="text-indigo-600">藍色拾獲</span> / <span class="text-red-500">紅色遺失</span>
+                </p>
+
                 <div class="bg-white p-4 px-6 rounded-[2rem] shadow-sm border-2 border-indigo-100 w-full flex justify-between items-center">
                     <div>
                         <span class="text-[10px] font-black text-slate-400 block tracking-[0.2em]">TOP HERO</span>
@@ -76,7 +81,7 @@
             <button onclick="switchInfoTab('rank')" id="btn-rank" class="flex-1 py-3 rounded-[2rem] font-black text-sm text-slate-500">功德榜</button>
         </div>
 
-        <div class="bg-white rounded-[2.5rem] shadow-sm border h-[420px] overflow-hidden flex flex-col">
+        <div class="bg-white rounded-[2.5rem] shadow-sm border h-[380px] overflow-hidden flex flex-col">
             <div id="panel-news" class="flex-1 overflow-y-auto p-4">
                 <div id="items-list" class="space-y-3"></div>
             </div>
@@ -93,19 +98,19 @@
                 <button onclick="switchReportTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-sm text-slate-400">遺失物品</button>
             </div>
             <div class="mb-5"><div id="location-name" class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-base font-black rounded-2xl">定位中...</div></div>
-            <div class="space-y-3 mb-6 text-left overflow-y-auto max-h-[50vh] px-1">
-                <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-500/20">
-                <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-500/20">
-                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none">
-                <input type="text" id="in-desc" placeholder="詳細描述 (顏色、特徵)" class="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none">
-                <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer text-center relative" onclick="document.getElementById('in-file').click()">
+            <div class="space-y-3 mb-6 text-left overflow-y-auto max-h-[45vh] px-1">
+                <input type="text" id="in-nick" maxlength="10" placeholder="暱稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-500/20">
+                <input type="text" id="in-item" placeholder="物品名稱 (必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-floor" placeholder="具體位置 (例：A302)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-desc" placeholder="詳細描述 (顏色特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer text-center" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-24 object-cover"></div>
-                    <div id="upload-placeholder" class="text-slate-400 text-[10px] py-2">📷 點擊拍照或上傳圖片 (選填)</div>
+                    <div id="upload-placeholder" class="text-slate-400 text-[10px]">📷 拍照或選擇照片 (選填)</div>
                 </div>
             </div>
             <button id="submit-btn" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg active:scale-95 transition">確認標註 (+50 功德)</button>
-            <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs uppercase tracking-widest">Cancel</button>
+            <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs">取消</button>
         </div>
     </div>
 
@@ -113,28 +118,28 @@
         <div class="bg-white rounded-[2.5rem] max-w-sm w-full overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
             <div class="w-full bg-slate-100 flex items-center justify-center relative min-h-[150px]">
                 <img id="detail-img" src="" class="w-full h-auto max-h-[40vh] object-contain block">
-                <div id="no-img-placeholder" class="hidden text-slate-300 font-black text-sm py-16">📷 無照片預覽</div>
-                <div id="type-tag" class="absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 shadow-lg"></div>
+                <div id="no-img-placeholder" class="hidden text-slate-300 font-bold text-sm py-16">📷 無照片預覽</div>
+                <div id="type-tag" class="absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 shadow-md"></div>
             </div>
             <div class="p-6 overflow-y-auto text-left">
-                <h2 id="detail-name" class="text-2xl font-black text-slate-800 mb-1"></h2>
+                <h2 id="detail-name" class="text-2xl font-black text-slate-800 line-clamp-1 mb-1"></h2>
                 <div class="flex justify-between items-center mb-4">
                     <p id="detail-loc" class="text-slate-400 font-bold text-xs"></p>
-                    <span class="text-[9px] bg-slate-100 px-2 py-0.5 rounded-lg text-slate-500 font-black italic">BY <span id="detail-finder"></span></span>
+                    <span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-lg text-slate-500 font-bold italic">BY <span id="detail-finder"></span></span>
                 </div>
                 <div class="space-y-3 mb-6">
-                    <div class="bg-indigo-50/50 rounded-2xl p-4 border-l-4 border-indigo-500">
-                        <p class="text-[9px] text-indigo-400 font-black uppercase mb-1">Location</p>
+                    <div class="bg-indigo-50/50 rounded-xl p-3 border-l-4 border-indigo-500">
+                        <p class="text-[9px] text-indigo-400 font-black">具體位置</p>
                         <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
                     </div>
-                    <div class="bg-amber-50 rounded-2xl p-4 border-l-4 border-amber-400">
-                        <p class="text-[9px] text-amber-500 font-black uppercase mb-1">Description</p>
+                    <div class="bg-amber-50 rounded-xl p-3 border-l-4 border-amber-400">
+                        <p class="text-[9px] text-amber-500 font-black">描述</p>
                         <p id="detail-desc" class="font-bold text-sm text-slate-700"></p>
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg active:scale-95 transition">是我的！</button>
-                    <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl transition">關閉</button>
+                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg active:scale-95 transition">是我的/找到了</button>
+                    <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl">關閉</button>
                 </div>
             </div>
         </div>
@@ -142,7 +147,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
@@ -161,7 +166,7 @@
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- UI 控制 ---
+        // UI Logic
         window.switchInfoTab = (tab) => {
             const isNews = tab === 'news';
             document.getElementById('btn-news').classList.toggle('info-tab-active', isNews);
@@ -175,23 +180,11 @@
             document.getElementById('tab-found').className = t==='found' ? "flex-1 py-2 rounded-xl font-black text-sm tab-active" : "flex-1 py-2 rounded-xl font-black text-sm text-slate-400";
             document.getElementById('tab-lost').className = t==='lost' ? "flex-1 py-2 rounded-xl font-black text-sm tab-lost-active" : "flex-1 py-2 rounded-xl font-black text-sm text-slate-400";
             const btn = document.getElementById('submit-btn');
-            btn.innerText = t === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
             btn.className = `w-full py-4 text-white font-black rounded-2xl shadow-lg transition ${t==='found'?'bg-indigo-600':'bg-red-500'}`;
+            btn.innerText = t === 'found' ? "確認標註 (+50 功德)" : "發布求助標記";
         };
 
-        window.closeModals = () => {
-            document.getElementById('report-modal').classList.add('hidden');
-            document.getElementById('in-nick').value = '';
-            document.getElementById('in-item').value = '';
-            document.getElementById('in-floor').value = '';
-            document.getElementById('in-desc').value = '';
-            document.getElementById('img-preview').src = '';
-            document.getElementById('preview-container').classList.add('hidden');
-            document.getElementById('upload-placeholder').classList.remove('hidden');
-        };
-        window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
-
-        // --- 核心功能：地圖與數據 ---
+        // Firestore Listeners
         onSnapshot(LOST_COLL, (s) => {
             reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
             document.getElementById('items-count').innerText = reports.length;
@@ -201,9 +194,7 @@
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(10)), (s) => {
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
                 <div class="flex items-center gap-4">
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${i<3 ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}">
-                        ${i+1}
-                    </div>
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${i<3 ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}">${i+1}</div>
                     <div class="flex-1 border-b border-slate-50 pb-2 flex justify-between items-center">
                         <span class="font-bold text-slate-700">${d.id}</span>
                         <span class="font-black text-indigo-500 text-xs">${d.data().merit || 0} PTS</span>
@@ -225,18 +216,15 @@
 
         function renderList() {
             document.getElementById('items-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => `
-                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100">
+                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-4 ${i.type==='found'?'border-indigo-500':'border-red-500'} flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 active:bg-slate-50">
                     <div class="w-10 h-10 bg-slate-50 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden">
-                        ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '<span class="text-lg">🎁</span>'}
+                        ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '🎁'}
                     </div>
-                    <div class="flex-1 truncate text-left">
-                        <div class="font-black text-sm text-slate-700 truncate">${i.name}</div>
-                        <div class="text-[10px] text-slate-400 font-bold">📍 ${i.location}</div>
-                    </div>
+                    <div class="flex-1 truncate text-left font-black text-sm text-slate-700">${i.name}<div class="text-[10px] text-slate-400 font-bold">📍 ${i.location}</div></div>
                 </div>`).join('');
         }
 
-        // --- 點擊與碰撞檢測 ---
+        // Map Click Handling
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
@@ -265,26 +253,76 @@
             if (snap.exists()) {
                 buildings = snap.data().buildings || [];
                 const layer = document.getElementById('shapes-layer');
-                layer.innerHTML = buildings.map(b => {
-                    const isTri = (b.name === "環境樓");
-                    return `<div class="building-shape ${isTri ? 'is-triangle' : ''}" style="left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg);"></div>`;
-                }).join('');
+                layer.innerHTML = buildings.map(b => `<div class="building-shape ${b.name==='環境樓'?'is-triangle':''}" style="left:${b.x}%; top:${b.y}%; width:${b.w}%; height:${b.h}%; transform:rotate(${b.angle || 0}deg);"></div>`).join('');
             }
         });
 
-        // --- 圖片處理 ---
+        // Detail Logic
+        window.openDetail = (id) => {
+            const item = reports.find(i => i.id === id); if(!item) return;
+            document.getElementById('detail-name').innerText = item.name;
+            document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
+            document.getElementById('detail-floor').innerText = item.floor_info || "無詳細樓層資訊";
+            document.getElementById('detail-finder').innerText = item.finder || "無名英雄";
+            document.getElementById('detail-desc').innerText = item.description || "暫無詳細描述";
+            
+            const tag = document.getElementById('type-tag');
+            tag.innerText = item.type === 'found' ? '拾獲物' : '協尋中';
+            tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 ${item.type==='found'?'bg-indigo-600':'bg-red-500'}`;
+
+            const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
+            if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
+            else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
+
+            document.getElementById('btn-claim-now').onclick = async () => {
+                if(confirm("確認已經處理完畢並移除標註嗎？")){
+                    if(item.type === 'found' && item.finder) {
+                        await updateDoc(doc(USER_COLL, item.finder), { merit: increment(20) }).catch(() => setDoc(doc(USER_COLL, item.finder), { merit: 20 }));
+                    }
+                    await deleteDoc(doc(db, "all_reports_v3", id));
+                    closeDetail();
+                }
+            };
+            document.getElementById('detail-modal').classList.remove('hidden');
+        };
+
+        // Upload Logic
+        document.getElementById('submit-btn').onclick = async () => {
+            const nick = document.getElementById('in-nick').value.trim(), item = document.getElementById('in-item').value.trim();
+            if(!nick || !item) return alert("請填寫暱稱與物品名稱！");
+            
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true; btn.innerText = "同步至伺服器...";
+
+            try {
+                await setDoc(doc(LOST_COLL), {
+                    type: currentReportTab, name: item, finder: nick,
+                    floor_info: document.getElementById('in-floor').value,
+                    description: document.getElementById('in-desc').value,
+                    location: document.getElementById('location-name').innerText.replace('📍 ',''),
+                    imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
+                    x: clickPos.x, y: clickPos.y, time: Date.now()
+                });
+                if(currentReportTab === 'found') {
+                    await updateDoc(doc(USER_COLL, nick), { merit: increment(50) }).catch(() => setDoc(doc(USER_COLL, nick), { merit: 50 }));
+                }
+                alert("感謝你的貢獻！標註已完成。");
+                closeModals();
+            } catch(e) { alert("上傳失敗，請稍後再試。"); } finally { btn.disabled = false; }
+        };
+
+        // Image Processing
         window.previewImage = (input) => {
             const f = input.files[0]; if(!f) return;
-            const reader = new FileReader(); 
+            const reader = new FileReader();
             reader.onload = e => {
                 const img = new Image();
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    let width = img.width, height = img.height, max = 800;
-                    if (width > height) { if (width > max) { height *= max / width; width = max; } }
-                    else { if (height > max) { width *= max / height; height = max; } }
-                    canvas.width = width; canvas.height = height;
-                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                    let w = img.width, h = img.height;
+                    if(w > 800) { h *= 800/w; w = 800; }
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
                     document.getElementById('img-preview').src = canvas.toDataURL('image/jpeg', 0.6);
                     document.getElementById('preview-container').classList.remove('hidden');
                     document.getElementById('upload-placeholder').classList.add('hidden');
@@ -294,68 +332,17 @@
             reader.readAsDataURL(f);
         };
 
-        // --- 詳情頁 ---
-        window.openDetail = (id) => {
-            const item = reports.find(i => i.id === id); if(!item) return;
-            const tag = document.getElementById('type-tag'), claimBtn = document.getElementById('btn-claim-now');
-            tag.innerText = item.type === 'found' ? '拾獲物' : '協尋中';
-            tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 shadow-lg ${item.type==='found'?'bg-indigo-600':'bg-red-500'}`;
-            claimBtn.innerText = item.type === 'found' ? '是我的！' : '找到了！';
-
-            document.getElementById('detail-name').innerText = item.name;
-            document.getElementById('detail-loc').innerText = `📍 ${item.location}`;
-            document.getElementById('detail-floor').innerText = item.floor_info || "無詳細位置";
-            document.getElementById('detail-finder').innerText = item.finder || "匿名";
-            document.getElementById('detail-desc').innerText = item.description || "無描述內容。";
-
-            const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
-            if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
-            else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
-            
-            claimBtn.onclick = async () => {
-                const confirmText = item.type === 'found' ? '確認要領回這件物品嗎？' : '您是否已經找回這件遺失物？';
-                if(confirm(confirmText)){
-                    if(item.type === 'found' && item.finder) {
-                        await updateDoc(doc(USER_COLL, item.finder), { merit: increment(20) }).catch(() => {
-                            setDoc(doc(USER_COLL, item.finder), { merit: 20 });
-                        });
-                    }
-                    await deleteDoc(doc(db, "all_reports_v3", id));
-                    closeDetail();
-                }
-            };
-            document.getElementById('detail-modal').classList.remove('hidden');
+        window.closeModals = () => {
+            document.getElementById('report-modal').classList.add('hidden');
+            document.getElementById('in-nick').value = '';
+            document.getElementById('in-item').value = '';
+            document.getElementById('in-floor').value = '';
+            document.getElementById('in-desc').value = '';
+            document.getElementById('img-preview').src = '';
+            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('upload-placeholder').classList.remove('hidden');
         };
-
-        // --- 提交數據 ---
-        document.getElementById('submit-btn').onclick = async () => {
-            const nick = document.getElementById('in-nick').value.trim();
-            const item = document.getElementById('in-item').value.trim();
-            if(!nick || !item) return alert("請填寫暱稱與物品名稱！");
-            
-            const btn = document.getElementById('submit-btn');
-            btn.disabled = true; btn.innerText = "正在同步至校園伺服器...";
-            
-            try {
-                const data = {
-                    type: currentReportTab, name: item, finder: nick,
-                    floor_info: document.getElementById('in-floor').value,
-                    description: document.getElementById('in-desc').value,
-                    location: document.getElementById('location-name').innerText.replace('📍 ',''),
-                    imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
-                    x: clickPos.x, y: clickPos.y, time: Date.now()
-                };
-                await setDoc(doc(LOST_COLL), data);
-                if(currentReportTab === 'found') {
-                    await updateDoc(doc(USER_COLL, nick), { merit: increment(50) }).catch(async () => {
-                        await setDoc(doc(USER_COLL, nick), { merit: 50 });
-                    });
-                }
-                alert("標註成功！感謝你的熱心幫助！");
-                closeModals();
-            } catch(e) { alert("發布失敗，請檢查網路！"); }
-            finally { btn.disabled = false; btn.innerText = currentReportTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記"; }
-        };
+        window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
 </body>
 </html>
