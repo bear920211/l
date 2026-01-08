@@ -73,7 +73,10 @@
         </div>
 
         <div class="bg-slate-100 p-1.5 rounded-[2.5rem] flex mb-4">
-            <button onclick="switchInfoTab('news')" id="btn-news" class="flex-1 py-3 rounded-[2rem] font-black text-sm info-tab-active">最新動態</button>
+            <button onclick="switchInfoTab('news')" id="btn-news" class="flex-1 py-3 rounded-[2rem] font-black text-sm info-tab-active flex items-center justify-center gap-2">
+                最新動態
+                <span id="news-count-badge" class="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-[10px] font-black">0</span>
+            </button>
             <button onclick="switchInfoTab('rank')" id="btn-rank" class="flex-1 py-3 rounded-[2rem] font-black text-sm text-slate-500">功德榜</button>
         </div>
 
@@ -97,7 +100,8 @@
             <div class="space-y-3 mb-6 text-left overflow-y-auto max-h-[45vh] px-1">
                 <div>
                     <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                    <div id="nick-hint" class="text-[10px] pl-4 pt-1 h-4 font-bold"></div> </div>
+                    <div id="nick-hint" class="text-[10px] pl-4 pt-1 h-4 font-bold"></div>
+                </div>
                 <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <input type="text" id="in-desc" placeholder="詳細描述 (顏色、特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
@@ -145,7 +149,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; // 補上 getDoc
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
@@ -164,7 +168,7 @@
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 補上暱稱監聽功能 ---
+        // 暱稱功德查詢監聽
         document.getElementById('in-nick').addEventListener('change', async (e) => {
             const nick = e.target.value.trim();
             const hint = document.getElementById('nick-hint');
@@ -180,7 +184,6 @@
             } catch(e) { hint.innerText = ""; }
         });
 
-        // --- 其餘 UI 與數據邏輯 (保持不變) ---
         window.switchInfoTab = (tab) => {
             const isNews = tab === 'news';
             document.getElementById('btn-news').classList.toggle('info-tab-active', isNews);
@@ -200,7 +203,9 @@
 
         onSnapshot(LOST_COLL, (s) => {
             reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
-            document.getElementById('items-count').innerText = reports.length;
+            const count = reports.length;
+            document.getElementById('items-count').innerText = count;
+            document.getElementById('news-count-badge').innerText = count;
             renderPins(); renderList();
         });
 
@@ -342,7 +347,7 @@
 
         window.closeModals = () => {
             document.getElementById('report-modal').classList.add('hidden');
-            document.getElementById('nick-hint').innerText = ''; // 清除提示
+            document.getElementById('nick-hint').innerText = '';
             document.getElementById('in-nick').value = '';
             document.getElementById('in-item').value = '';
             document.getElementById('in-floor').value = '';
