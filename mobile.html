@@ -8,36 +8,24 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; overflow-x: hidden; }
-        
         .map-container {
-            position: relative; 
-            width: 100%; 
-            aspect-ratio: 1191 / 855; 
+            position: relative; width: 100%; aspect-ratio: 1191 / 855; 
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
-            border-radius: 2.5rem; 
-            border: 8px solid white; 
-            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-            overflow: hidden; 
-            cursor: crosshair;
+            border-radius: 2.5rem; border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            overflow: hidden; cursor: crosshair;
         }
-
         #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
         #shapes-layer { z-index: 10; opacity: 0; } 
         #pins-layer { z-index: 20; }
         .building-shape { position: absolute; background: transparent; transform-origin: center; } 
-        .is-triangle { 
-            clip-path: polygon(0% 0%, 0% 100%, 100% 100%); 
-            -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%);
-        }
+        .is-triangle { clip-path: polygon(0% 0%, 0% 100%, 100% 100%); -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%); }
         .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
         .pin-dot { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 0 12px rgba(0,0,0,0.3); animation: pulse 2s infinite; }
-        
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0.4); transform: scale(1); }
             70% { box-shadow: 0 0 0 12px rgba(79, 70, 229, 0); transform: scale(1.1); }
             100% { box-shadow: 0 0 0 0px rgba(79, 70, 229, 0); transform: scale(1); }
         }
-
         .info-tab-active { background: white; color: #4f46e5; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         .tab-active { background-color: #4f46e5 !important; color: white !important; }
         .tab-lost-active { background-color: #ef4444 !important; color: white !important; }
@@ -53,7 +41,13 @@
                 <p class="text-slate-600 text-[13px] font-black mb-4 pl-1">
                     點擊地圖標註：<span class="text-indigo-600">藍色拾獲</span> / <span class="text-red-500">紅色遺失</span>
                 </p>
+                <div class="bg-white p-4 px-6 rounded-[2rem] shadow-sm border-2 border-indigo-100 w-full flex justify-between items-center">
+                    <div>
+                        <span class="text-[10px] font-black text-slate-400 block tracking-[0.2em]">TOP HERO</span>
+                        <span id="top-hero-name" class="text-xl font-black text-indigo-600 truncate block">載入中...</span>
+                    </div>
                 </div>
+            </div>
         </header>
 
         <div id="map-root" class="map-container mb-6" onclick="handleMapClick(event)">
@@ -157,7 +151,6 @@
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // 暱稱功德監聽
         document.getElementById('in-nick').addEventListener('change', async (e) => {
             const nick = e.target.value.trim();
             const hint = document.getElementById('nick-hint');
@@ -192,9 +185,7 @@
 
         onSnapshot(LOST_COLL, (s) => {
             reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
-            const count = reports.length;
-            // 僅更新按鈕上的 badge
-            document.getElementById('news-count-badge').innerText = count;
+            document.getElementById('news-count-badge').innerText = reports.length;
             renderPins(); renderList();
         });
 
@@ -207,7 +198,7 @@
                         <span class="font-black text-indigo-500 text-xs">${d.data().merit || 0} PTS</span>
                     </div>
                 </div>`).join('');
-            // TOP HERO 資料依然會在背景處理，但 HTML 已移除對應顯示
+            if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
 
         function renderPins() {
@@ -228,11 +219,8 @@
                 const isFoundType = (i.type && i.type.toString().trim().toLowerCase() === 'found');
                 const hexColor = isFoundType ? '#4f46e5' : '#ef4444'; 
                 const textHighlight = isFoundType ? 'text-indigo-600' : 'text-red-600';
-
                 return `
-                <div onclick="openDetail('${i.id}')" 
-                     style="border-left: 6px solid ${hexColor};" 
-                     class="p-3 bg-white rounded-2xl flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 mb-3 active:scale-[0.98] transition-all">
+                <div onclick="openDetail('${i.id}')" style="border-left: 6px solid ${hexColor};" class="p-3 bg-white rounded-2xl flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 mb-3 active:scale-[0.98] transition-all">
                     <div class="w-10 h-10 bg-slate-50 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-50">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '<span class="text-lg">🎁</span>'}
                     </div>
@@ -247,7 +235,6 @@
             }).join('');
         }
 
-        // 其餘 handleMapClick, checkHit, openDetail, submit-btn 等邏輯皆維持原封不動
         window.handleMapClick = (e) => {
             const r = document.getElementById('map-root').getBoundingClientRect();
             clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
@@ -258,11 +245,9 @@
 
         function checkHit(px, py, b) {
             if (b.name === "環境樓") {
-                const rad = (b.angle || 0) * Math.PI / 180;
-                const cx = b.x + b.w/2, cy = b.y + b.h/2;
+                const rad = (b.angle || 0) * Math.PI / 180, cx = b.x + b.w/2, cy = b.y + b.h/2;
                 const dx = px - cx, dy = py - cy;
-                const rx = dx * Math.cos(-rad) - dy * Math.sin(-rad);
-                const ry = dx * Math.sin(-rad) + dy * Math.cos(-rad);
+                const rx = dx * Math.cos(-rad) - dy * Math.sin(-rad), ry = dx * Math.sin(-rad) + dy * Math.cos(-rad);
                 const x1 = -b.w/2, y1 = -b.h/2, x2 = -b.w/2, y2 = b.h/2, x3 = b.w/2, y3 = b.h/2;
                 const getArea = (xa,ya,xb,yb,xc,yc) => Math.abs((xa*(yb-yc)+xb*(yc-ya)+xc*(ya-yb))/2);
                 const total = getArea(x1,y1,x2,y2,x3,y3);
@@ -296,9 +281,7 @@
             document.getElementById('btn-claim-now').onclick = async () => {
                 const confirmText = item.type === 'found' ? '確認要領回這件物品嗎？' : '您是否已經找回這件遺失物？';
                 if(confirm(confirmText)){
-                    if(item.type === 'found' && item.finder) {
-                        await updateDoc(doc(USER_COLL, item.finder), { merit: increment(20) }).catch(() => setDoc(doc(USER_COLL, item.finder), { merit: 20 }));
-                    }
+                    if(item.type === 'found' && item.finder) await updateDoc(doc(USER_COLL, item.finder), { merit: increment(20) }).catch(() => setDoc(doc(USER_COLL, item.finder), { merit: 20 }));
                     await deleteDoc(doc(db, "all_reports_v3", id));
                     closeDetail();
                 }
@@ -309,22 +292,16 @@
         document.getElementById('submit-btn').onclick = async () => {
             const nick = document.getElementById('in-nick').value.trim(), item = document.getElementById('in-item').value.trim();
             if(!nick || !item) return alert("請填寫暱稱與物品名稱！");
-            const btn = document.getElementById('submit-btn');
-            btn.disabled = true; btn.innerText = "資料傳輸中...";
+            const btn = document.getElementById('submit-btn'); btn.disabled = true; btn.innerText = "資料傳輸中...";
             try {
                 await setDoc(doc(LOST_COLL), {
-                    type: currentReportTab, name: item, finder: nick,
-                    floor_info: document.getElementById('in-floor').value,
-                    description: document.getElementById('in-desc').value,
-                    location: document.getElementById('location-name').innerText.replace('📍 ',''),
+                    type: currentReportTab, name: item, finder: nick, floor_info: document.getElementById('in-floor').value,
+                    description: document.getElementById('in-desc').value, location: document.getElementById('location-name').innerText.replace('📍 ',''),
                     imageUrl: document.getElementById('img-preview').src.startsWith('data:image') ? document.getElementById('img-preview').src : "",
                     x: clickPos.x, y: clickPos.y, time: Date.now()
                 });
-                if(currentReportTab === 'found') {
-                    await updateDoc(doc(USER_COLL, nick), { merit: increment(50) }).catch(() => setDoc(doc(USER_COLL, nick), { merit: 50 }));
-                }
-                alert("發布成功！感謝熱心幫忙。");
-                closeModals();
+                if(currentReportTab === 'found') await updateDoc(doc(USER_COLL, nick), { merit: increment(50) }).catch(() => setDoc(doc(USER_COLL, nick), { merit: 50 }));
+                alert("發布成功！感謝熱心幫忙。"); closeModals();
             } catch(e) { alert("發布失敗，請重試！"); } finally { btn.disabled = false; btn.innerText = currentReportTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記"; }
         };
 
@@ -335,13 +312,10 @@
                 const img = new Image();
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    let w = img.width, h = img.height;
-                    if(w > 800) { h *= 800/w; w = 800; }
-                    canvas.width = w; canvas.height = h;
-                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    let w = img.width, h = img.height; if(w > 800) { h *= 800/w; w = 800; }
+                    canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h);
                     document.getElementById('img-preview').src = canvas.toDataURL('image/jpeg', 0.6);
-                    document.getElementById('preview-container').classList.remove('hidden');
-                    document.getElementById('upload-placeholder').classList.add('hidden');
+                    document.getElementById('preview-container').classList.remove('hidden'); document.getElementById('upload-placeholder').classList.add('hidden');
                 };
                 img.src = e.target.result;
             };
@@ -349,14 +323,10 @@
         };
 
         window.closeModals = () => {
-            document.getElementById('report-modal').classList.add('hidden');
-            document.getElementById('nick-hint').innerText = '';
-            document.getElementById('in-nick').value = '';
-            document.getElementById('in-item').value = '';
-            document.getElementById('in-floor').value = '';
-            document.getElementById('in-desc').value = '';
-            document.getElementById('img-preview').src = '';
-            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('report-modal').classList.add('hidden'); document.getElementById('nick-hint').innerText = '';
+            document.getElementById('in-nick').value = ''; document.getElementById('in-item').value = '';
+            document.getElementById('in-floor').value = ''; document.getElementById('in-desc').value = '';
+            document.getElementById('img-preview').src = ''; document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('upload-placeholder').classList.remove('hidden');
         };
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
