@@ -51,11 +51,9 @@
         <header class="flex flex-col gap-4 mb-6 text-left">
             <div>
                 <h1 class="text-4xl font-[900] text-slate-800 tracking-tighter mb-1">NTCU 拾物所</h1>
-                
                 <p class="text-slate-600 text-[13px] font-black mb-4 pl-1">
                     點擊地圖標註：<span class="text-indigo-600">藍色拾獲</span> / <span class="text-red-500">紅色遺失</span>
                 </p>
-
                 <div class="bg-white p-4 px-6 rounded-[2rem] shadow-sm border-2 border-indigo-100 w-full flex justify-between items-center">
                     <div>
                         <span class="text-[10px] font-black text-slate-400 block tracking-[0.2em]">TOP HERO</span>
@@ -97,7 +95,9 @@
             </div>
             <div class="mb-5"><div id="location-name" class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-base font-black rounded-2xl">定位中...</div></div>
             <div class="space-y-3 mb-6 text-left overflow-y-auto max-h-[45vh] px-1">
-                <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <div>
+                    <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                    <div id="nick-hint" class="text-[10px] pl-4 pt-1 h-4 font-bold"></div> </div>
                 <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <input type="text" id="in-desc" placeholder="詳細描述 (顏色、特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
@@ -145,7 +145,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, increment, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; // 補上 getDoc
 
         const firebaseConfig = {
             apiKey: "AIzaSyDnKRElPR1agzd5Lknzbqrv9kJtiD_bKsY",
@@ -164,6 +164,23 @@
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
+        // --- 補上暱稱監聽功能 ---
+        document.getElementById('in-nick').addEventListener('change', async (e) => {
+            const nick = e.target.value.trim();
+            const hint = document.getElementById('nick-hint');
+            if(!nick) { hint.innerText = ""; return; }
+            hint.innerText = "查詢中...";
+            try {
+                const userSnap = await getDoc(doc(USER_COLL, nick));
+                if(userSnap.exists()) {
+                    hint.innerHTML = `✅ 已識別，目前功德：<span class="text-indigo-600 font-black">${userSnap.data().merit || 0}</span>`;
+                } else {
+                    hint.innerHTML = `✨ <span class="text-emerald-500 font-black">歡迎加入。</span>`;
+                }
+            } catch(e) { hint.innerText = ""; }
+        });
+
+        // --- 其餘 UI 與數據邏輯 (保持不變) ---
         window.switchInfoTab = (tab) => {
             const isNews = tab === 'news';
             document.getElementById('btn-news').classList.toggle('info-tab-active', isNews);
@@ -325,6 +342,7 @@
 
         window.closeModals = () => {
             document.getElementById('report-modal').classList.add('hidden');
+            document.getElementById('nick-hint').innerText = ''; // 清除提示
             document.getElementById('in-nick').value = '';
             document.getElementById('in-item').value = '';
             document.getElementById('in-floor').value = '';
