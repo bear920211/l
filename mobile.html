@@ -8,27 +8,26 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; overflow-x: hidden; }
+        
+        /* 地圖容器 */
         .map-container {
             position: relative; width: 100%; aspect-ratio: 1191 / 855; 
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
             border-radius: 2.5rem; border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
             overflow: hidden; cursor: crosshair;
         }
+
         #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
         #shapes-layer { z-index: 10; opacity: 0; } 
         #pins-layer { z-index: 20; }
         .building-shape { position: absolute; background: transparent; transform-origin: center; } 
         .is-triangle { clip-path: polygon(0% 0%, 0% 100%, 100% 100%); -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%); }
-        .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
         
-        /* 這裡更新了縮小後的圓點 */
+        /* 縮小後的標註圓點 */
+        .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
         .pin-dot { 
-            width: 12px; 
-            height: 12px; 
-            border-radius: 50%; 
-            border: 1.5px solid white; 
-            box-shadow: 0 0 8px rgba(0,0,0,0.3); 
-            animation: pulse 2s infinite; 
+            width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid white; 
+            box-shadow: 0 0 8px rgba(0,0,0,0.3); animation: pulse 2s infinite; 
         }
 
         @keyframes pulse {
@@ -44,6 +43,7 @@
     </style>
 </head>
 <body class="p-4">
+
     <div class="max-w-md mx-auto pb-10">
         <header class="flex flex-col gap-4 mb-6 text-left">
             <div>
@@ -84,13 +84,14 @@
     </div>
 
     <div id="report-modal" class="fixed inset-0 bg-slate-900/40 hidden flex items-center justify-center z-[300] p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-6 shadow-2xl text-center">
-            <div class="flex bg-slate-100 p-1 rounded-2xl mb-4">
+        <div class="bg-white rounded-[2.5rem] w-[350px] max-h-[85vh] flex flex-col p-6 shadow-2xl text-center">
+            <div class="flex-shrink-0 flex bg-slate-100 p-1 rounded-2xl mb-4">
                 <button onclick="switchReportTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-sm tab-active">撿到東西</button>
                 <button onclick="switchReportTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-sm text-slate-400">遺失物品</button>
             </div>
-            <div class="mb-5"><div id="location-name" class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-base font-black rounded-2xl">定位中...</div></div>
-            <div class="space-y-3 mb-6 text-left overflow-y-auto max-h-[45vh] px-1">
+            <div class="flex-shrink-0 mb-4"><div id="location-name" class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-base font-black rounded-2xl">定位中...</div></div>
+            
+            <div class="flex-1 overflow-y-auto space-y-3 mb-6 text-left px-1">
                 <div>
                     <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                     <div id="nick-hint" class="text-[10px] pl-4 pt-1 h-4 font-bold"></div>
@@ -104,19 +105,21 @@
                     <div id="upload-placeholder" class="text-slate-400 text-[10px] py-2">📷 點擊拍照或上傳圖片 (選填)</div>
                 </div>
             </div>
-            <button id="submit-btn" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg transition">確認標註 (+50 功德)</button>
-            <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs uppercase tracking-widest">取消</button>
+            <div class="flex-shrink-0">
+                <button id="submit-btn" class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg transition">確認標註 (+50 功德)</button>
+                <button onclick="closeModals()" class="mt-4 text-slate-400 font-bold text-xs uppercase tracking-widest">取消</button>
+            </div>
         </div>
     </div>
 
     <div id="detail-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[400] p-4 backdrop-blur-md">
-        <div class="bg-white rounded-[2.5rem] max-w-sm w-full overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
-            <div class="w-full bg-slate-100 flex items-center justify-center relative min-h-[150px]">
-                <img id="detail-img" src="" class="w-full h-auto max-h-[40vh] object-contain block">
+        <div class="bg-white rounded-[2.5rem] w-[350px] h-[580px] overflow-hidden shadow-2xl flex flex-col">
+            <div class="flex-shrink-0 w-full h-[200px] bg-slate-100 flex items-center justify-center relative border-b">
+                <img id="detail-img" src="" class="w-full h-full object-cover block">
                 <div id="no-img-placeholder" class="hidden text-slate-300 font-black text-sm py-16">📷 無照片預覽</div>
                 <div id="type-tag" class="absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 shadow-lg"></div>
             </div>
-            <div class="p-6 overflow-y-auto text-left">
+            <div class="flex-1 overflow-y-auto p-6 text-left">
                 <h2 id="detail-name" class="text-2xl font-black text-slate-800 mb-1"></h2>
                 <div class="flex justify-between items-center mb-4">
                     <p id="detail-loc" class="text-slate-400 font-bold text-xs"></p>
@@ -132,10 +135,10 @@
                         <p id="detail-desc" class="font-bold text-sm text-slate-700"></p>
                     </div>
                 </div>
-                <div class="flex gap-2">
-                    <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg active:scale-95 transition">是我的！</button>
-                    <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl transition">關閉</button>
-                </div>
+            </div>
+            <div class="flex-shrink-0 p-6 pt-0 flex gap-2">
+                <button id="btn-claim-now" class="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg active:scale-95 transition">是我的！</button>
+                <button onclick="closeDetail()" class="px-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl transition">關閉</button>
             </div>
         </div>
     </div>
@@ -161,6 +164,7 @@
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
+        // 暱稱監聽
         document.getElementById('in-nick').addEventListener('change', async (e) => {
             const nick = e.target.value.trim();
             const hint = document.getElementById('nick-hint');
