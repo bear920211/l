@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NTCU 互助會 | 拾物所</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -23,7 +23,7 @@
         .building-shape { position: absolute; background: transparent; transform-origin: center; } 
         .is-triangle { clip-path: polygon(0% 0%, 0% 100%, 100% 100%); -webkit-clip-path: polygon(0% 0%, 0% 100%, 100% 100%); }
         
-        /* 標註圓點 */
+        /* 縮小後的標註圓點 */
         .floating-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; }
         .pin-dot { 
             width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid white; 
@@ -93,12 +93,12 @@
             
             <div class="flex-1 overflow-y-auto space-y-3 mb-6 text-left px-1">
                 <div>
-                    <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none text-base">
+                    <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                     <div id="nick-hint" class="text-[10px] pl-4 pt-1 h-4 font-bold"></div>
                 </div>
-                <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none text-base">
-                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none text-base">
-                <input type="text" id="in-desc" placeholder="詳細描述 (顏色、特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none text-base">
+                <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-desc" placeholder="詳細描述 (顏色、特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
                 <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer text-center relative" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-24 object-cover"></div>
@@ -113,7 +113,7 @@
     </div>
 
     <div id="detail-modal" class="fixed inset-0 bg-slate-900/60 hidden flex items-center justify-center z-[400] p-4 backdrop-blur-md">
-        <div class="bg-white rounded-[2.5rem] w-[350px] max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
+        <div class="bg-white rounded-[2.5rem] w-[350px] h-[580px] overflow-hidden shadow-2xl flex flex-col">
             <div class="flex-shrink-0 w-full h-[200px] bg-slate-100 flex items-center justify-center relative border-b">
                 <img id="detail-img" src="" class="w-full h-full object-cover block">
                 <div id="no-img-placeholder" class="hidden text-slate-300 font-black text-sm py-16">📷 無照片預覽</div>
