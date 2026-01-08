@@ -231,26 +231,31 @@
             });
         }
 
-        // --- 最新動態列表渲染邏輯 (重點區域) ---
+        // --- 修正後的渲染邏輯：強制 Hex 顯色 ---
         function renderList() {
             const list = document.getElementById('items-list');
             if(!list) return;
             
             list.innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => {
-                // 強制將 'found' 以外的所有類型判斷為紅色
-                const isFoundType = (i.type && i.type.trim() === 'found');
-                const accentColor = isFoundType ? 'border-indigo-600' : 'border-red-600';
+                // 強制將 'found' 以外的所有類型判斷為紅色，使用 Hex 確保絕對顯示
+                const isFoundType = (i.type && i.type.toString().trim().toLowerCase() === 'found');
+                const hexColor = isFoundType ? '#4f46e5' : '#ef4444'; // 藍 vs 紅
                 const textHighlight = isFoundType ? 'text-indigo-600' : 'text-red-600';
 
                 return `
-                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-[6px] ${accentColor} flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 mb-3 active:scale-[0.98] transition-all">
+                <div onclick="openDetail('${i.id}')" 
+                     style="border-left: 6px solid ${hexColor};" 
+                     class="p-3 bg-white rounded-2xl flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 mb-3 active:scale-[0.98] transition-all">
+                    
                     <div class="w-10 h-10 bg-slate-50 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-50">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '<span class="text-lg">🎁</span>'}
                     </div>
+                    
                     <div class="flex-1 truncate text-left font-black text-sm text-slate-700">
                         ${i.name}
                         <div class="text-[10px] text-slate-400 font-bold">📍 ${i.location}</div>
                     </div>
+                    
                     <div class="text-[9px] font-black ${textHighlight} bg-slate-50 px-2 py-1 rounded border border-slate-100">
                         ${isFoundType ? '拾獲' : '遺失'}
                     </div>
