@@ -130,11 +130,11 @@
                 </div>
                 <div class="space-y-3 mb-6">
                     <div class="bg-indigo-50/50 rounded-2xl p-4 border-l-4 border-indigo-500">
-                        <p class="text-[9px] text-indigo-400 font-black uppercase mb-1">Location</p>
+                        <p class="text-[9px] text-indigo-400 font-black uppercase mb-1">具體位置</p>
                         <p id="detail-floor" class="font-bold text-sm text-slate-700"></p>
                     </div>
                     <div class="bg-amber-50 rounded-2xl p-4 border-l-4 border-amber-400">
-                        <p class="text-[9px] text-amber-500 font-black uppercase mb-1">Description</p>
+                        <p class="text-[9px] text-amber-500 font-black uppercase mb-1">詳細描述</p>
                         <p id="detail-desc" class="font-bold text-sm text-slate-700"></p>
                     </div>
                 </div>
@@ -176,9 +176,9 @@
             try {
                 const userSnap = await getDoc(doc(USER_COLL, nick));
                 if(userSnap.exists()) {
-                    hint.innerHTML = `✅ 已識別，目前功德：<span class="text-indigo-600 font-black">${userSnap.data().merit || 0}</span>`;
+                    hint.innerHTML = `✅ 已識別，功德：<span class="text-indigo-600 font-black">${userSnap.data().merit || 0}</span>`;
                 } else {
-                    hint.innerHTML = `✨ <span class="text-emerald-500 font-black">歡迎加入。</span>`;
+                    hint.innerHTML = `✨ <span class="text-emerald-500 font-black">歡迎加入拾物所。</span>`;
                 }
             } catch(e) { hint.innerText = ""; }
         });
@@ -231,20 +231,28 @@
             });
         }
 
-        // 修正後的渲染列表：拾獲與遺失形態一致，邊框加厚
+        // --- 最新動態列表渲染邏輯 (重點區域) ---
         function renderList() {
-            document.getElementById('items-list').innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => {
-                const isFound = (i.type === 'found');
-                const borderColor = isFound ? 'border-indigo-600' : 'border-red-600';
+            const list = document.getElementById('items-list');
+            if(!list) return;
+            
+            list.innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => {
+                // 強制將 'found' 以外的所有類型判斷為紅色
+                const isFoundType = (i.type && i.type.trim() === 'found');
+                const accentColor = isFoundType ? 'border-indigo-600' : 'border-red-600';
+                const textHighlight = isFoundType ? 'text-indigo-600' : 'text-red-600';
 
                 return `
-                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-[6px] ${borderColor} flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 active:bg-slate-50 mb-3 transition-all">
-                    <div class="w-10 h-10 bg-slate-50 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-100">
-                        ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '🎁'}
+                <div onclick="openDetail('${i.id}')" class="p-3 bg-white rounded-2xl border-l-[6px] ${accentColor} flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 mb-3 active:scale-[0.98] transition-all">
+                    <div class="w-10 h-10 bg-slate-50 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-50">
+                        ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '<span class="text-lg">🎁</span>'}
                     </div>
                     <div class="flex-1 truncate text-left font-black text-sm text-slate-700">
                         ${i.name}
                         <div class="text-[10px] text-slate-400 font-bold">📍 ${i.location}</div>
+                    </div>
+                    <div class="text-[9px] font-black ${textHighlight} bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                        ${isFoundType ? '拾獲' : '遺失'}
                     </div>
                 </div>`;
             }).join('');
@@ -315,7 +323,7 @@
             const nick = document.getElementById('in-nick').value.trim(), item = document.getElementById('in-item').value.trim();
             if(!nick || !item) return alert("請填寫暱稱與物品名稱！");
             const btn = document.getElementById('submit-btn');
-            btn.disabled = true; btn.innerText = "同步中...";
+            btn.disabled = true; btn.innerText = "資料傳輸中...";
             try {
                 await setDoc(doc(LOST_COLL), {
                     type: currentReportTab, name: item, finder: nick,
@@ -328,9 +336,9 @@
                 if(currentReportTab === 'found') {
                     await updateDoc(doc(USER_COLL, nick), { merit: increment(50) }).catch(() => setDoc(doc(USER_COLL, nick), { merit: 50 }));
                 }
-                alert("標註成功！");
+                alert("發布成功！感謝熱心幫忙。");
                 closeModals();
-            } catch(e) { alert("失敗，請重試！"); } finally { btn.disabled = false; btn.innerText = currentReportTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記"; }
+            } catch(e) { alert("發布失敗，請重試！"); } finally { btn.disabled = false; btn.innerText = currentReportTab === 'found' ? "確認標註 (+50 功德)" : "發布求助標記"; }
         };
 
         window.previewImage = (input) => {
