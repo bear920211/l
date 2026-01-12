@@ -81,7 +81,7 @@
         </div>
     </div>
 
-    <div id="report-modal" class="fixed inset-0 bg-slate-900/40 hidden flex items-center justify-center z-[300] p-4 backdrop-blur-sm touch-none">
+    <div id="report-modal" class="fixed inset-0 bg-slate-900/40 hidden z-[300] p-4 backdrop-blur-sm touch-none">
         <div id="report-content" class="bg-white rounded-[2.5rem] w-full max-w-[350px] max-h-[90vh] flex flex-col p-6 shadow-2xl text-center overflow-hidden touch-auto">
             <div class="flex-shrink-0 flex bg-slate-100 p-1 rounded-2xl mb-4">
                 <button onclick="switchReportTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-sm tab-active">撿到東西</button>
@@ -162,24 +162,49 @@
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 反向縮放補償邏輯 ---
+        // --- 反向縮放與中心校正 JS ---
         const adjustModalScale = () => {
             const modal = document.getElementById('report-modal');
             const content = document.getElementById('report-content');
             if (!modal || modal.classList.contains('hidden')) return;
-            const scale = window.visualViewport ? window.visualViewport.scale : 1;
-            if (scale > 1) {
-                content.style.transform = `scale(${1 / scale})`;
-                content.style.transformOrigin = "center center";
-            } else {
-                content.style.transform = "";
+
+            if (window.visualViewport) {
+                const scale = window.visualViewport.scale;
+                const offsetLeft = window.visualViewport.offsetLeft;
+                const offsetTop = window.visualViewport.offsetTop;
+                const vWidth = window.visualViewport.width;
+                const vHeight = window.visualViewport.height;
+
+                if (scale > 1) {
+                    modal.style.position = 'absolute';
+                    modal.style.left = '0'; modal.style.top = '0';
+                    modal.style.width = '100%'; modal.style.height = '100%';
+                    modal.style.display = 'block';
+
+                    const centerX = offsetLeft + (vWidth / 2);
+                    const centerY = offsetTop + (vHeight / 2);
+
+                    content.style.position = 'absolute';
+                    content.style.left = `${centerX}px`;
+                    content.style.top = `${centerY}px`;
+                    content.style.transform = `translate(-50%, -50%) scale(${1 / scale})`;
+                } else {
+                    modal.style.position = 'fixed';
+                    modal.style.inset = '0';
+                    modal.style.display = 'flex';
+                    modal.style.alignItems = 'center';
+                    modal.style.justifyContent = 'center';
+                    content.style.position = '';
+                    content.style.left = ''; content.style.top = '';
+                    content.style.transform = "";
+                }
             }
         };
+
         if (window.visualViewport) {
             window.visualViewport.addEventListener('resize', adjustModalScale);
             window.visualViewport.addEventListener('scroll', adjustModalScale);
         }
-        // -----------------------
 
         document.getElementById('in-nick').addEventListener('change', async (e) => {
             const nick = e.target.value.trim();
@@ -247,10 +272,8 @@
             if(!list) return;
             list.innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => {
                 const isFoundType = (i.type && i.type.toString().trim().toLowerCase() === 'found');
-                const hexColor = isFoundType ? '#4f46e5' : '#ef4444'; 
-                const textHighlight = isFoundType ? 'text-indigo-600' : 'text-red-600';
                 return `
-                <div onclick="openDetail('${i.id}')" style="border-left: 6px solid ${hexColor};" class="p-3 bg-white rounded-2xl flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 mb-3 active:scale-[0.98] transition-all">
+                <div onclick="openDetail('${i.id}')" style="border-left: 6px solid ${isFoundType ? '#4f46e5' : '#ef4444'};" class="p-3 bg-white rounded-2xl flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 mb-3 active:scale-[0.98] transition-all">
                     <div class="w-10 h-10 bg-slate-50 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-50">
                         ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '<span class="text-lg">🎁</span>'}
                     </div>
@@ -258,7 +281,7 @@
                         ${i.name}
                         <div class="text-[10px] text-slate-400 font-bold">📍 ${i.location}</div>
                     </div>
-                    <div class="text-[9px] font-black ${textHighlight} bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                    <div class="text-[9px] font-black ${isFoundType ? 'text-indigo-600' : 'text-red-600'} bg-slate-50 px-2 py-1 rounded border border-slate-100">
                         ${isFoundType ? '拾獲' : '遺失'}
                     </div>
                 </div>`;
@@ -271,7 +294,7 @@
             const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
             document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
             document.getElementById('report-modal').classList.remove('hidden');
-            adjustModalScale(); // 打開時立即調整一次
+            adjustModalScale(); 
         };
 
         function checkHit(px, py, b) {
@@ -361,12 +384,19 @@
         };
 
         window.closeModals = () => {
-            document.getElementById('report-modal').classList.add('hidden'); document.getElementById('nick-hint').innerText = '';
+            const modal = document.getElementById('report-modal');
+            const content = document.getElementById('report-content');
+            modal.classList.add('hidden'); 
+            modal.style.position = 'fixed'; 
+            modal.style.inset = '0';
+            content.style.position = '';
+            content.style.transform = ""; 
+            
+            document.getElementById('nick-hint').innerText = '';
             document.getElementById('in-nick').value = ''; document.getElementById('in-item').value = '';
             document.getElementById('in-floor').value = ''; document.getElementById('in-desc').value = '';
             document.getElementById('img-preview').src = ''; document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('upload-placeholder').classList.remove('hidden');
-            document.getElementById('report-content').style.transform = ""; // 關閉時重置縮放
         };
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
