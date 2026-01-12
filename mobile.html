@@ -11,7 +11,8 @@
         
         .map-container {
             position: relative; width: 100%; aspect-ratio: 1191 / 855; 
-            background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
+            /* 修正：改為 100% 100% 確保圖片強制填滿容器內部，消除左右空隙 */
+            background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/100% 100%;
             border-radius: 2.5rem; border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
             overflow: hidden; cursor: crosshair;
         }
@@ -202,6 +203,34 @@
             window.visualViewport.addEventListener('scroll', adjustModalScale);
         }
 
+        // --- 修正後的點擊處理函數 (精準校正 8px 邊框位移) ---
+        window.handleMapClick = (e) => {
+            const mapRoot = document.getElementById('map-root');
+            const r = mapRoot.getBoundingClientRect();
+            
+            // 由於 CSS 設定 border: 8px，座標原點必須向右下位移 8 像素
+            const border = 8;
+
+            // 計算相對於地圖圖片內容區域的座標 (扣除左邊與上邊框)
+            const xPx = e.clientX - r.left - border;
+            const yPx = e.clientY - r.top - border;
+
+            // 計算地圖圖片實際的顯示寬高 (總寬高扣除雙邊邊框)
+            const innerW = r.width - (border * 2);
+            const innerH = r.height - (border * 2);
+
+            // 換算為百分比
+            clickPos = { 
+                x: (xPx / innerW) * 100, 
+                y: (yPx / innerH) * 100 
+            };
+
+            const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
+            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
+            document.getElementById('report-modal').classList.remove('hidden');
+            adjustModalScale(); 
+        };
+
         // --- 原始功能函數集 ---
         document.getElementById('in-nick').addEventListener('change', async (e) => {
             const nick = e.target.value.trim();
@@ -276,15 +305,6 @@
                 </div>`;
             }).join('');
         }
-
-        window.handleMapClick = (e) => {
-            const r = document.getElementById('map-root').getBoundingClientRect();
-            clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
-            const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
-            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
-            document.getElementById('report-modal').classList.remove('hidden');
-            adjustModalScale(); 
-        };
 
         function checkHit(px, py, b) {
             if (b.name === "環境樓") {
@@ -368,7 +388,6 @@
             reader.readAsDataURL(f);
         };
 
-        // --- 強力清除殘影與重置狀態 ---
         window.closeModals = () => {
             const modal = document.getElementById('report-modal');
             const content = document.getElementById('report-content');
