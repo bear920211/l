@@ -162,7 +162,7 @@
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 反向縮放與中心校正 JS ---
+        // --- 核心縮放位移校正邏輯 ---
         const adjustModalScale = () => {
             const modal = document.getElementById('report-modal');
             const content = document.getElementById('report-content');
@@ -170,24 +170,20 @@
 
             if (window.visualViewport) {
                 const scale = window.visualViewport.scale;
-                const offsetLeft = window.visualViewport.offsetLeft;
-                const offsetTop = window.visualViewport.offsetTop;
-                const vWidth = window.visualViewport.width;
-                const vHeight = window.visualViewport.height;
-
                 if (scale > 1) {
+                    const centerX = window.visualViewport.offsetLeft + (window.visualViewport.width / 2);
+                    const centerY = window.visualViewport.offsetTop + (window.visualViewport.height / 2);
+
                     modal.style.position = 'absolute';
                     modal.style.left = '0'; modal.style.top = '0';
                     modal.style.width = '100%'; modal.style.height = '100%';
                     modal.style.display = 'block';
 
-                    const centerX = offsetLeft + (vWidth / 2);
-                    const centerY = offsetTop + (vHeight / 2);
-
                     content.style.position = 'absolute';
                     content.style.left = `${centerX}px`;
                     content.style.top = `${centerY}px`;
                     content.style.transform = `translate(-50%, -50%) scale(${1 / scale})`;
+                    content.style.transformOrigin = "center center";
                 } else {
                     modal.style.position = 'fixed';
                     modal.style.inset = '0';
@@ -206,6 +202,7 @@
             window.visualViewport.addEventListener('scroll', adjustModalScale);
         }
 
+        // --- 原始功能函數集 ---
         document.getElementById('in-nick').addEventListener('change', async (e) => {
             const nick = e.target.value.trim();
             const hint = document.getElementById('nick-hint');
@@ -272,18 +269,10 @@
             if(!list) return;
             list.innerHTML = reports.sort((a,b)=>b.time-a.time).map(i => {
                 const isFoundType = (i.type && i.type.toString().trim().toLowerCase() === 'found');
-                return `
-                <div onclick="openDetail('${i.id}')" style="border-left: 6px solid ${isFoundType ? '#4f46e5' : '#ef4444'};" class="p-3 bg-white rounded-2xl flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 mb-3 active:scale-[0.98] transition-all">
-                    <div class="w-10 h-10 bg-slate-50 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-50">
-                        ${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '<span class="text-lg">🎁</span>'}
-                    </div>
-                    <div class="flex-1 truncate text-left font-black text-sm text-slate-700">
-                        ${i.name}
-                        <div class="text-[10px] text-slate-400 font-bold">📍 ${i.location}</div>
-                    </div>
-                    <div class="text-[9px] font-black ${isFoundType ? 'text-indigo-600' : 'text-red-600'} bg-slate-50 px-2 py-1 rounded border border-slate-100">
-                        ${isFoundType ? '拾獲' : '遺失'}
-                    </div>
+                return `<div onclick="openDetail('${i.id}')" style="border-left: 6px solid ${isFoundType ? '#4f46e5' : '#ef4444'};" class="p-3 bg-white rounded-2xl flex items-center gap-3 cursor-pointer shadow-sm border border-slate-100 mb-3 active:scale-[0.98] transition-all">
+                    <div class="w-10 h-10 bg-slate-50 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-50">${i.imageUrl ? `<img src="${i.imageUrl}" class="w-full h-full object-cover">` : '<span class="text-lg">🎁</span>'}</div>
+                    <div class="flex-1 truncate text-left font-black text-sm text-slate-700">${i.name}<div class="text-[10px] text-slate-400 font-bold">📍 ${i.location}</div></div>
+                    <div class="text-[9px] font-black ${isFoundType ? 'text-indigo-600' : 'text-red-600'} bg-slate-50 px-2 py-1 rounded border border-slate-100">${isFoundType ? '拾獲' : '遺失'}</div>
                 </div>`;
             }).join('');
         }
@@ -326,19 +315,15 @@
             document.getElementById('detail-floor').innerText = item.floor_info || "無詳細位置";
             document.getElementById('detail-finder').innerText = item.finder || "匿名";
             document.getElementById('detail-desc').innerText = item.description || "無描述內容。";
-            
             const isFound = item.type === 'found';
             const tag = document.getElementById('type-tag');
             tag.innerText = isFound ? '拾獲物' : '協尋中';
             tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 shadow-lg ${isFound?'bg-indigo-600':'bg-red-500'}`;
-            
             const claimBtn = document.getElementById('btn-claim-now');
             claimBtn.innerText = isFound ? '是我的！' : '找到了！';
-
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
             if(item.imageUrl) { img.src = item.imageUrl; img.classList.remove('hidden'); ph.classList.add('hidden'); }
             else { img.classList.add('hidden'); ph.classList.remove('hidden'); }
-            
             claimBtn.onclick = async () => {
                 const confirmText = isFound ? '確認要領回這件物品嗎？' : '您是否已經找回這件遺失物？';
                 if(confirm(confirmText)){
@@ -383,15 +368,14 @@
             reader.readAsDataURL(f);
         };
 
+        // --- 強力清除殘影與重置狀態 ---
         window.closeModals = () => {
             const modal = document.getElementById('report-modal');
             const content = document.getElementById('report-content');
             modal.classList.add('hidden'); 
-            modal.style.position = 'fixed'; 
-            modal.style.inset = '0';
-            content.style.position = '';
-            content.style.transform = ""; 
-            
+            modal.style.position = 'fixed'; modal.style.inset = '0';
+            modal.style.width = ''; modal.style.height = ''; modal.style.display = '';
+            content.style.position = ''; content.style.left = ''; content.style.top = ''; content.style.transform = ""; 
             document.getElementById('nick-hint').innerText = '';
             document.getElementById('in-nick').value = ''; document.getElementById('in-item').value = '';
             document.getElementById('in-floor').value = ''; document.getElementById('in-desc').value = '';
