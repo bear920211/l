@@ -81,8 +81,8 @@
         </div>
     </div>
 
-   <div id="report-modal" class="fixed inset-0 bg-slate-900/40 hidden flex items-center justify-center z-[300] p-4 backdrop-blur-sm touch-none">
-    <div class="bg-white rounded-[2.5rem] w-full max-w-[350px] max-h-[90vh] flex flex-col p-6 shadow-2xl text-center overflow-hidden touch-auto">
+    <div id="report-modal" class="fixed inset-0 bg-slate-900/40 hidden flex items-center justify-center z-[300] p-4 backdrop-blur-sm touch-none">
+        <div id="report-content" class="bg-white rounded-[2.5rem] w-full max-w-[350px] max-h-[90vh] flex flex-col p-6 shadow-2xl text-center overflow-hidden touch-auto">
             <div class="flex-shrink-0 flex bg-slate-100 p-1 rounded-2xl mb-4">
                 <button onclick="switchReportTab('found')" id="tab-found" class="flex-1 py-2 rounded-xl font-black text-sm tab-active">撿到東西</button>
                 <button onclick="switchReportTab('lost')" id="tab-lost" class="flex-1 py-2 rounded-xl font-black text-sm text-slate-400">遺失物品</button>
@@ -91,12 +91,12 @@
             
             <div class="flex-1 overflow-y-auto space-y-3 mb-6 text-left px-1">
                 <div>
-                    <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                    <input type="text" id="in-nick" maxlength="10" placeholder="暱稱(必填，最多10字)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none text-base">
                     <div id="nick-hint" class="text-[10px] pl-4 pt-1 h-4 font-bold"></div>
                 </div>
-                <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
-                <input type="text" id="in-desc" placeholder="詳細描述 (顏色、特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none">
+                <input type="text" id="in-item" placeholder="物品名稱(必填)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none text-base">
+                <input type="text" id="in-floor" placeholder="具體位置 (例：A302、球場)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none text-base">
+                <input type="text" id="in-desc" placeholder="詳細描述 (顏色、特徵)" class="w-full px-5 py-3 bg-slate-50 border rounded-2xl font-bold outline-none text-base">
                 <div class="p-3 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer text-center relative" onclick="document.getElementById('in-file').click()">
                     <input type="file" id="in-file" accept="image/*" class="hidden" onchange="previewImage(this)">
                     <div id="preview-container" class="hidden"><img id="img-preview" src="" class="rounded-xl mx-auto max-h-24 object-cover"></div>
@@ -161,6 +161,25 @@
         const CAMPUS_DOC = doc(db, "campus_data", "NTCU-CAMPUS-V2");
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
+
+        // --- 反向縮放補償邏輯 ---
+        const adjustModalScale = () => {
+            const modal = document.getElementById('report-modal');
+            const content = document.getElementById('report-content');
+            if (!modal || modal.classList.contains('hidden')) return;
+            const scale = window.visualViewport ? window.visualViewport.scale : 1;
+            if (scale > 1) {
+                content.style.transform = `scale(${1 / scale})`;
+                content.style.transformOrigin = "center center";
+            } else {
+                content.style.transform = "";
+            }
+        };
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', adjustModalScale);
+            window.visualViewport.addEventListener('scroll', adjustModalScale);
+        }
+        // -----------------------
 
         document.getElementById('in-nick').addEventListener('change', async (e) => {
             const nick = e.target.value.trim();
@@ -252,6 +271,7 @@
             const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
             document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
             document.getElementById('report-modal').classList.remove('hidden');
+            adjustModalScale(); // 打開時立即調整一次
         };
 
         function checkHit(px, py, b) {
@@ -290,7 +310,6 @@
             tag.className = `absolute top-4 left-4 px-4 py-1 rounded-full text-[10px] font-black text-white z-10 shadow-lg ${isFound?'bg-indigo-600':'bg-red-500'}`;
             
             const claimBtn = document.getElementById('btn-claim-now');
-            // 按鈕文字判斷
             claimBtn.innerText = isFound ? '是我的！' : '找到了！';
 
             const img = document.getElementById('detail-img'), ph = document.getElementById('no-img-placeholder');
@@ -347,6 +366,7 @@
             document.getElementById('in-floor').value = ''; document.getElementById('in-desc').value = '';
             document.getElementById('img-preview').src = ''; document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('upload-placeholder').classList.remove('hidden');
+            document.getElementById('report-content').style.transform = ""; // 關閉時重置縮放
         };
         window.closeDetail = () => document.getElementById('detail-modal').classList.add('hidden');
     </script>
