@@ -162,7 +162,7 @@
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 核心縮放位移校正邏輯 ---
+        // --- 彈窗縮放中心校正 ---
         const adjustModalScale = () => {
             const modal = document.getElementById('report-modal');
             const content = document.getElementById('report-content');
@@ -202,7 +202,28 @@
             window.visualViewport.addEventListener('scroll', adjustModalScale);
         }
 
-        // --- 原始功能函數集 ---
+        // --- 修正後的點擊感應邏輯 ---
+        window.handleMapClick = (e) => {
+            const mapRoot = document.getElementById('map-root');
+            const r = mapRoot.getBoundingClientRect();
+            
+            // 使用 pageX/Y 以確保捲動位移也被計算進去，然後減去地圖容器相對於文件的位置
+            const mapX = e.pageX - (r.left + window.scrollX);
+            const mapY = e.pageY - (r.top + window.scrollY);
+
+            // 轉換為百分比
+            clickPos = { 
+                x: (mapX / r.width) * 100, 
+                y: (mapY / r.height) * 100 
+            };
+
+            const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
+            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
+            document.getElementById('report-modal').classList.remove('hidden');
+            adjustModalScale(); 
+        };
+
+        // --- 原始邏輯與資料同步 ---
         document.getElementById('in-nick').addEventListener('change', async (e) => {
             const nick = e.target.value.trim();
             const hint = document.getElementById('nick-hint');
@@ -276,15 +297,6 @@
                 </div>`;
             }).join('');
         }
-
-        window.handleMapClick = (e) => {
-            const r = document.getElementById('map-root').getBoundingClientRect();
-            clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
-            const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
-            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
-            document.getElementById('report-modal').classList.remove('hidden');
-            adjustModalScale(); 
-        };
 
         function checkHit(px, py, b) {
             if (b.name === "環境樓") {
@@ -368,7 +380,6 @@
             reader.readAsDataURL(f);
         };
 
-        // --- 強力清除殘影與重置狀態 ---
         window.closeModals = () => {
             const modal = document.getElementById('report-modal');
             const content = document.getElementById('report-content');
