@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>NTCU 互助會 | 拾物所</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -14,6 +14,7 @@
             background: #e2e8f0 url('https://i.ibb.co/DPQm11wf/1.png') no-repeat center/contain;
             border-radius: 2.5rem; border: 8px solid white; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
             overflow: hidden; cursor: crosshair;
+            touch-action: pinch-zoom; /* 確保點擊不被延遲 */
         }
 
         #shapes-layer, #pins-layer { position: absolute; inset: 0; pointer-events: none; }
@@ -58,7 +59,7 @@
             </div>
         </header>
 
-        <div id="map-root" class="map-container mb-6" onclick="handleMapClick(event)">
+        <div id="map-root" class="map-container mb-6">
             <div id="shapes-layer"></div>
             <div id="pins-layer"></div>
         </div>
@@ -162,38 +163,31 @@
 
         let currentReportTab = 'found', buildings = [], reports = [], clickPos = {x:50, y:50};
 
-        // --- 彈窗縮放中心校正 ---
+        // --- 彈窗縮放與定位校正 (使用 VisualViewport) ---
         const adjustModalScale = () => {
             const modal = document.getElementById('report-modal');
             const content = document.getElementById('report-content');
             if (!modal || modal.classList.contains('hidden')) return;
 
             if (window.visualViewport) {
-                const scale = window.visualViewport.scale;
-                if (scale > 1) {
-                    const centerX = window.visualViewport.offsetLeft + (window.visualViewport.width / 2);
-                    const centerY = window.visualViewport.offsetTop + (window.visualViewport.height / 2);
+                const vv = window.visualViewport;
+                const scale = vv.scale;
 
-                    modal.style.position = 'absolute';
-                    modal.style.left = '0'; modal.style.top = '0';
-                    modal.style.width = '100%'; modal.style.height = '100%';
-                    modal.style.display = 'block';
+                // 物理定位：強行將 Modal 置於目前視覺視窗的中心
+                modal.style.position = 'absolute';
+                modal.style.left = '0px';
+                modal.style.top = '0px';
+                modal.style.width = document.documentElement.scrollWidth + 'px';
+                modal.style.height = document.documentElement.scrollHeight + 'px';
+                modal.style.display = 'block';
 
-                    content.style.position = 'absolute';
-                    content.style.left = `${centerX}px`;
-                    content.style.top = `${centerY}px`;
-                    content.style.transform = `translate(-50%, -50%) scale(${1 / scale})`;
-                    content.style.transformOrigin = "center center";
-                } else {
-                    modal.style.position = 'fixed';
-                    modal.style.inset = '0';
-                    modal.style.display = 'flex';
-                    modal.style.alignItems = 'center';
-                    modal.style.justifyContent = 'center';
-                    content.style.position = '';
-                    content.style.left = ''; content.style.top = '';
-                    content.style.transform = "";
-                }
+                const centerX = vv.offsetLeft + (vv.width / 2);
+                const centerY = vv.offsetTop + (vv.height / 2);
+
+                content.style.position = 'absolute';
+                content.style.left = `${centerX}px`;
+                content.style.top = `${centerY}px`;
+                content.style.transform = `translate(-50%, -50%) scale(${1 / scale})`;
             }
         };
 
@@ -202,28 +196,42 @@
             window.visualViewport.addEventListener('scroll', adjustModalScale);
         }
 
-        // --- 修正後的點擊感應邏輯 ---
-        window.handleMapClick = (e) => {
+        // --- 深度座標校正：解決左側歪掉問題 ---
+        const getMapCoordinates = (e) => {
             const mapRoot = document.getElementById('map-root');
-            const r = mapRoot.getBoundingClientRect();
+            const rect = mapRoot.getBoundingClientRect();
             
-            // 使用 pageX/Y 以確保捲動位移也被計算進去，然後減去地圖容器相對於文件的位置
-            const mapX = e.pageX - (r.left + window.scrollX);
-            const mapY = e.pageY - (r.top + window.scrollY);
+            // 優先取得 Touch 座標，其次 Mouse
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-            // 轉換為百分比
-            clickPos = { 
-                x: (mapX / r.width) * 100, 
-                y: (mapY / r.height) * 100 
-            };
-
-            const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
-            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
-            document.getElementById('report-modal').classList.remove('hidden');
-            adjustModalScale(); 
+            // rect.left 是相對於目前視覺窗口的即時位置（已包含捲動與縮放影響）
+            const x = ((clientX - rect.left) / rect.width) * 100;
+            const y = ((clientY - rect.top) / rect.height) * 100;
+            
+            return { x, y };
         };
 
-        // --- 原始邏輯與資料同步 ---
+        const mapRoot = document.getElementById('map-root');
+        // 同時監聽點擊與觸摸，確保在移動端反應靈敏
+        const handleInteraction = (e) => {
+            // 防止雙重觸發
+            if (e.type === 'touchstart' && e.cancelable) e.preventDefault();
+            
+            clickPos = getMapCoordinates(e);
+            
+            // 檢查是否點到建築
+            const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
+            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
+            
+            document.getElementById('report-modal').classList.remove('hidden');
+            adjustModalScale();
+        };
+
+        mapRoot.addEventListener('click', handleInteraction);
+        // 如果是 iOS 可能需要監聽 touchend
+
+        // --- 以下為原始功能與數據同步 (文字不改) ---
         document.getElementById('in-nick').addEventListener('change', async (e) => {
             const nick = e.target.value.trim();
             const hint = document.getElementById('nick-hint');
