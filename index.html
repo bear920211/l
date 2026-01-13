@@ -217,7 +217,7 @@
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
                 <div class="flex justify-between items-center p-2 bg-white/10 rounded-xl text-[11px]">
-                    <span>${i+1}. ${d.id}</span><b>${d.data().merit || 0} 🐟</b>
+                    <span>${i+1}. ${d.id}</span><b>${d.data().merit || 0} 🧱🐟</b>
                 </div>`).join('');
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
         });
