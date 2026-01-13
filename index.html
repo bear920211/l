@@ -64,8 +64,8 @@
                 </div>
             </div>
             <div class="lg:col-span-4 flex flex-col gap-6">
-               <div class="bg-indigo-500/40 backdrop-blur-md rounded-[2.5rem] p-6 text-white shadow-xl border border-white/10">
-                    <h3 class="font-bold mb-4 text-sm flex items-center gap-2">🏆 功德榜</h3>
+               <div class="bg-indigo-500/40 backdrop-blur-md rounded-[2.5rem] p-6 text-white shadow-xl border border-white/20">
+                    <h3 class="font-bold mb-4 text-sm flex items-center gap-2 text-amber-400">🏆 功德榜</h3>
                     <div id="leaderboard" class="space-y-3 text-xs"></div>
                 </div>
                 <div class="bg-white rounded-[2.5rem] shadow-sm border h-[400px] flex flex-col overflow-hidden">
@@ -216,7 +216,7 @@
 
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
             document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
-                <div class="flex justify-between items-center p-2 bg-white/10 rounded-xl text-[11px]">
+                <div class="flex justify-between items-center p-2 bg-white/20 rounded-xl text-[11px]">
                     <span>${i+1}. ${d.id}</span><b>${d.data().merit || 0} 🧱🐟</b>
                 </div>`).join('');
             if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
