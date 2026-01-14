@@ -215,12 +215,34 @@
         });
 
         onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
-            document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
-                <div class="flex justify-between items-center p-2 bg-white/40 rounded-xl text-[11px]">
-                    <span>${i+1}. ${d.id}</span><b>${d.data().merit || 0} 🧱🐟</b>
-                </div>`).join('');
-            if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
-        });
+    document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => {
+        // 1. 序號圈圈顏色邏輯 (金、銀、銅、其他)
+        let medalClass = "";
+        if (i === 0) medalClass = "bg-amber-400 text-amber-900 shadow-sm"; // 金
+        else if (i === 1) medalClass = "bg-slate-300 text-slate-800";      // 銀
+        else if (i === 2) medalClass = "bg-orange-300 text-orange-900";   // 銅
+        else medalClass = "bg-slate-700 text-white";                       // 其他
+
+        return `
+            <div class="flex justify-between items-center p-3 bg-white/70 backdrop-blur-sm rounded-2xl mb-2 border border-white/50 shadow-sm">
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 flex items-center justify-center rounded-full font-black text-[10px] ${medalClass}">
+                        ${i + 1}
+                    </span>
+                    
+                    <span class="text-slate-800 font-bold text-xs">${d.id}</span>
+                </div>
+
+                <div class="flex items-center gap-1">
+                    <span class="font-black text-orange-600 text-sm">${d.data().merit || 0}</span>
+                    <span class="text-[10px] opacity-80">🧱🐟</span>
+                </div>
+            </div>`;
+    }).join('');
+
+    // 更新頂部首席功德主名字
+    if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
+});
 
         window.switchTab = (t) => {
             currentTab = t;
