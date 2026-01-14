@@ -214,26 +214,32 @@
             renderPins(); renderList();
         });
 
-     onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
+    onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
     document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => {
+        // 1. 判斷是否為前三名
+        const isTopThree = i < 3;
+        
+        // 2. 定義前三名的顏色邏輯
         let medalClass = "";
         if (i === 0) medalClass = "bg-amber-400 text-amber-900 shadow-sm"; 
         else if (i === 1) medalClass = "bg-slate-300 text-slate-800";      
         else if (i === 2) medalClass = "bg-orange-300 text-orange-900";   
-        else medalClass = "bg-slate-700 text-white";                       
 
         return `
-            <div class="flex justify-between items-center p-2.5 bg-white/85 backdrop-blur-md rounded-xl mb-2 border border-white/60 shadow-sm transition-all hover:bg-white/95">
+            <div class="flex justify-between items-center p-2.5 bg-white/85 backdrop-blur-md rounded-xl mb-2 border border-white/60 shadow-sm transition-all">
                 <div class="flex items-center gap-3">
-                    <span class="w-7 h-7 flex items-center justify-center rounded-full font-black text-[13px] ${medalClass}">
-                        ${i + 1}
-                    </span>
+                    <div class="w-8 flex justify-center">
+                        ${isTopThree 
+                            ? `<span class="w-7 h-7 flex items-center justify-center rounded-full font-black text-[13px] ${medalClass}">${i + 1}</span>`
+                            : `<span class="text-slate-500 font-bold text-[14px] ml-1">${i + 1}.</span>`
+                        }
+                    </div>
                     
                     <span class="text-slate-900 font-black text-[16px]">${d.id}</span>
                 </div>
 
                 <div class="flex items-center gap-1.5">
-                    <span class="font-black text-orange-600 text-[20px] line-height-none">${d.data().merit || 0}</span>
+                    <span class="font-black text-orange-600 text-[20px]">${d.data().merit || 0}</span>
                     <span class="text-[11px] font-bold text-slate-500">🧱🐟</span>
                 </div>
             </div>`;
