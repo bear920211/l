@@ -214,36 +214,33 @@
             renderPins(); renderList();
         });
 
-        onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
+      onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(5)), (s) => {
     document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => {
-        // 1. 序號圈圈顏色邏輯 (金、銀、銅、其他)
         let medalClass = "";
-        if (i === 0) medalClass = "bg-amber-400 text-amber-900 shadow-sm"; // 金
-        else if (i === 1) medalClass = "bg-slate-300 text-slate-800";      // 銀
-        else if (i === 2) medalClass = "bg-orange-300 text-orange-900";   // 銅
-        else medalClass = "bg-slate-700 text-white";                       // 其他
+        if (i === 0) medalClass = "bg-amber-400 text-amber-900 shadow-sm"; 
+        else if (i === 1) medalClass = "bg-slate-300 text-slate-800";      
+        else if (i === 2) medalClass = "bg-orange-300 text-orange-900";   
+        else medalClass = "bg-slate-700 text-white";                       
 
         return `
-            <div class="flex justify-between items-center p-3 bg-white/70 backdrop-blur-sm rounded-2xl mb-2 border border-white/50 shadow-sm">
-                <div class="flex items-center gap-3">
-                    <span class="w-6 h-6 flex items-center justify-center rounded-full font-black text-[10px] ${medalClass}">
+            <div class="flex justify-between items-center p-3.5 bg-white/80 backdrop-blur-md rounded-2xl mb-3 border border-white/60 shadow-md transition-all hover:translate-x-1">
+                <div class="flex items-center gap-4">
+                    <span class="w-8 h-8 flex items-center justify-center rounded-full font-black text-[14px] ${medalClass}">
                         ${i + 1}
                     </span>
                     
-                    <span class="text-slate-800 font-bold text-xs">${d.id}</span>
+                    <span class="text-slate-900 font-black text-[16px] tracking-wide">${d.id}</span>
                 </div>
 
-                <div class="flex items-center gap-1">
-                    <span class="font-black text-orange-600 text-sm">${d.data().merit || 0}</span>
-                    <span class="text-[10px] opacity-80">🧱🐟</span>
+                <div class="flex items-center gap-2">
+                    <span class="font-black text-orange-600 text-[20px]">${d.data().merit || 0}</span>
+                    <span class="text-[12px] font-bold text-slate-500">🧱🐟</span>
                 </div>
             </div>`;
     }).join('');
 
-    // 更新頂部首席功德主名字
     if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
 });
-
         window.switchTab = (t) => {
             currentTab = t;
             document.getElementById('tab-found').className = t==='found' ? "flex-1 py-2 rounded-xl font-black text-sm tab-active" : "flex-1 py-2 rounded-xl font-black text-sm text-slate-400";
