@@ -270,17 +270,38 @@
             renderPins(); renderList();
         });
 
-        onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(10)), (s) => {
-            document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => `
-                <div class="flex items-center gap-4">
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${i<3 ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}">${i+1}</div>
-                    <div class="flex-1 border-b border-slate-50 pb-2 flex justify-between items-center">
-                        <span class="font-bold text-slate-700">${d.id}</span>
-                        <span class="font-black text-indigo-500 text-xs">${d.data().merit || 0} 🪵🐟</span>
-                    </div>
-                </div>`).join('');
-            if(s.docs[0]) document.getElementById('top-hero-name').innerText = s.docs[0].id;
-        });
+       onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(10)), (s) => {
+    document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => {
+        // 前三名使用不同顏色圓圈
+        const medalColors = [
+            'bg-amber-400 text-white', // 金
+            'bg-slate-300 text-white', // 銀
+            'bg-orange-300 text-white' // 銅
+        ];
+        const isTopThree = i < 3;
+        
+        return `
+            <div class="flex items-center gap-3 py-1">
+                <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full font-black text-xs ${isTopThree ? medalColors[i] : 'bg-slate-100 text-slate-400'}">
+                    ${i + 1}
+                </div>
+                <div class="flex-1 min-w-0 border-b border-slate-50 pb-2 flex justify-between items-center">
+                    <span class="font-semibold text-slate-700 truncate mr-2 text-[15px]">
+                        ${d.id}
+                    </span>
+                    <span class="font-black text-indigo-600 text-sm flex-shrink-0">
+                        ${d.data().merit || 0} <span class="text-[10px] text-slate-400">🪵🐟</span>
+                    </span>
+                </div>
+            </div>`;
+    }).join('');
+    
+    // 同步更新 TOP HERO 名字
+    if(s.docs[0]) {
+        const heroEl = document.getElementById('top-hero-name');
+        heroEl.innerText = s.docs[0].id;
+    }
+});
 
         function renderPins() {
             const layer = document.getElementById('pins-layer'); layer.innerHTML = '';
