@@ -185,6 +185,7 @@
                 const pArea = getArea(rx,ry,x1,y1,x2,y2) + getArea(rx,ry,x2,y2,x3,y3) + getArea(rx,ry,x3,y3,x1,y1);
                 return Math.abs(total - pArea) < 1.0;
             }
+            const buffer = 1.0;
             return px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h;
         }
 
