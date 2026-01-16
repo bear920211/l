@@ -173,20 +173,30 @@
         });
 
         function checkHit(px, py, b) {
-            if (b.name === "環境樓") {
-                const rad = (b.angle || 0) * Math.PI / 180;
-                const cx = b.x + b.w/2, cy = b.y + b.h/2;
-                const dx = px - cx, dy = py - cy;
-                const rx = dx * Math.cos(-rad) - dy * Math.sin(-rad);
-                const ry = dx * Math.sin(-rad) + dy * Math.cos(-rad);
-                const x1 = -b.w/2, y1 = -b.h/2, x2 = -b.w/2, y2 = b.h/2, x3 = b.w/2, y3 = b.h/2;
-                const getArea = (xa,ya,xb,yb,xc,yc) => Math.abs((xa*(yb-yc)+xb*(yc-ya)+xc*(ya-yb))/2);
-                const total = getArea(x1,y1,x2,y2,x3,y3);
-                const pArea = getArea(rx,ry,x1,y1,x2,y2) + getArea(rx,ry,x2,y2,x3,y3) + getArea(rx,ry,x3,y3,x1,y1);
-                return Math.abs(total - pArea) < 1.0;
-            }
-            return px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h;
-        }
+    // 1. 取得旋轉角度與中心點
+    const rad = (b.angle || 0) * Math.PI / 180;
+    const cx = b.x + b.w/2, cy = b.y + b.h/2;
+    
+    // 2. 將點擊點 (px, py) 反向旋轉回「未旋轉」的狀態
+    const dx = px - cx, dy = py - cy;
+    const rx = dx * Math.cos(-rad) - dy * Math.sin(-rad);
+    const ry = dx * Math.sin(-rad) + dy * Math.cos(-rad);
+
+    // 3. 環境樓 (三角形) 的特殊判定
+    if (b.name === "環境樓") {
+        const x1 = -b.w/2, y1 = -b.h/2, x2 = -b.w/2, y2 = b.h/2, x3 = b.w/2, y3 = b.h/2;
+        const getArea = (xa,ya,xb,yb,xc,yc) => Math.abs((xa*(yb-yc)+xb*(yc-ya)+xc*(ya-yb))/2);
+        const total = getArea(x1,y1,x2,y2,x3,y3);
+        const pArea = getArea(rx,ry,x1,y1,x2,y2) + getArea(rx,ry,x2,y2,x3,y3) + getArea(rx,ry,x3,y3,x1,y1);
+        return Math.abs(total - pArea) < 1.0;
+    }
+
+    // 4. 其他所有長方形建築 (也使用反向旋轉後的 rx, ry 來判斷)
+    // 加上 1.0 的 buffer 容錯
+    const bw = b.w / 2 + 1.0;
+    const bh = b.h / 2 + 1.0;
+    return rx >= -bw && rx <= bw && ry >= -bh && ry <= bh;
+}
 
         onSnapshot(CAMPUS_DOC, (snap) => {
             if (snap.exists()) {
