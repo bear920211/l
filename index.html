@@ -201,28 +201,12 @@
         });
 
      window.handleMapClick = (e) => {
-    const mapRoot = document.getElementById('map-root');
-    const r = mapRoot.getBoundingClientRect();
-    
-    // 取得邊框寬度（這 8px 必須扣除，否則會產生位移）
-    const style = window.getComputedStyle(mapRoot);
-    const bL = parseFloat(style.borderLeftWidth) || 0;
-    const bT = parseFloat(style.borderTopWidth) || 0;
-
-    // 計算「純地圖區域」的寬高
-    const innerW = r.width - (bL * 2); 
-    const innerH = r.height - (bT * 2);
-
-    // 重新換算百分比，確保點擊點跟綠框完全同步
-    clickPos = { 
-        x: ((e.clientX - r.left - bL) / innerW) * 100, 
-        y: ((e.clientY - r.top - bT) / innerH) * 100 
-    };
-
-    const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
-    document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
-    document.getElementById('report-modal').classList.remove('hidden');
-};
+            const r = document.getElementById('map-root').getBoundingClientRect();
+            clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
+            const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
+            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
+            document.getElementById('report-modal').classList.remove('hidden');
+        };
 
         onSnapshot(LOST_COLL, (s) => {
             reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
