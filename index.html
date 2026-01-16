@@ -11,6 +11,16 @@
     <title>NTCU 互助會 | 拾物所</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* 除錯模式：讓隱藏的感應層現身 */
+#shapes-layer { 
+    opacity: 0.5 !important; /* 原本是 0，改為 0.5 就能看到綠色區塊 */
+    pointer-events: none; 
+}
+
+.building-shape { 
+    background: rgba(34, 197, 94, 0.4) !important; /* 綠色半透明 */
+    border: 1px solid #166534;
+}
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; }
         .map-container {
