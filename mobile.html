@@ -270,7 +270,7 @@
             renderPins(); renderList();
         });
 
-       onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(10)), (s) => {
+       onSnapshot(query(USER_COLL, orderBy("merit", "desc"), limit(6)), (s) => {
     document.getElementById('leaderboard').innerHTML = s.docs.map((d, i) => {
         // 前三名使用不同顏色圓圈
         const medalColors = [
