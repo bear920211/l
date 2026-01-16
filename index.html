@@ -201,12 +201,32 @@
         });
 
      window.handleMapClick = (e) => {
-            const r = document.getElementById('map-root').getBoundingClientRect();
-            clickPos = { x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100 };
-            const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
-            document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
-            document.getElementById('report-modal').classList.remove('hidden');
-        };
+    const mapRoot = document.getElementById('map-root');
+    const r = mapRoot.getBoundingClientRect();
+    
+    // 1. 取得實際邊框數值 (通常是 8px)
+    const style = window.getComputedStyle(mapRoot);
+    const bL = parseFloat(style.borderLeftWidth) || 0;
+    const bT = parseFloat(style.borderTopWidth) || 0;
+    const bR = parseFloat(style.borderRightWidth) || 0;
+    const bB = parseFloat(style.borderBottomWidth) || 0;
+
+    // 2. 計算「內部真正圖片區域」的寬高
+    const innerW = r.width - bL - bR;
+    const innerH = r.height - bT - bB;
+
+    // 3. 計算座標時：(滑鼠位置 - 容器左邊距離 - 左邊框厚度) / 內部寬度
+    clickPos = { 
+        x: ((e.clientX - r.left - bL) / innerW) * 100, 
+        y: ((e.clientY - r.top - bT) / innerH) * 100 
+    };
+
+    // 4. 進行判定
+    const hit = buildings.find(b => checkHit(clickPos.x, clickPos.y, b));
+    
+    document.getElementById('location-name').innerText = `📍 ${hit ? hit.name : "校園開放區域"}`;
+    document.getElementById('report-modal').classList.remove('hidden');
+};
 
         onSnapshot(LOST_COLL, (s) => {
             reports = s.docs.map(d => ({ id: d.id, ...d.data() }));
