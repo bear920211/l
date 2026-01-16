@@ -39,7 +39,16 @@
     </style>
 </head>
 <body class="p-4 md:p-8">
+/* 除錯模式：讓隱藏的感應層現身 */
+#shapes-layer { 
+    opacity: 0.5 !important; /* 原本是 0，改為 0.5 就能看到綠色區塊 */
+    pointer-events: none; 
+}
 
+.building-shape { 
+    background: rgba(34, 197, 94, 0.4) !important; /* 綠色半透明 */
+    border: 1px solid #166534;
+}
     <div class="max-w-6xl mx-auto">
         <header class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end mb-10">
             <div class="lg:col-span-8 text-left">
